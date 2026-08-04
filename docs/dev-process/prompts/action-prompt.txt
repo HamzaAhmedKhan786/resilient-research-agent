@@ -1,0 +1,11 @@
+The runtime appends a compact JSON object after the planner prompt with:
+
+- goal
+- current step
+- remaining step budget
+- discovered sources and stable IDs
+- extracts for sources read during the current process
+- admitted evidence
+- the three most recent semantic errors
+
+The model returns exactly one structured action. The runtime validates the action against current state before any tool execution or state mutation.

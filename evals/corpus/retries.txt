@@ -1,0 +1,3 @@
+# Bounded retries
+Retries should be bounded and reserved for failures likely to be transient.
+Exponential backoff reduces pressure on a recovering dependency. Invalid arguments and policy violations are deterministic failures, so repeating them unchanged wastes the step budget.

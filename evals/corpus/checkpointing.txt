@@ -1,0 +1,3 @@
+# Durable checkpointing
+A checkpoint lets a process resume from durable state instead of repeating all prior work.
+Atomic replacement prevents readers from observing a half-written checkpoint. A useful checkpoint records the goal, completed work, evidence, errors, and budget consumption.

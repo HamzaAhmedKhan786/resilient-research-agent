@@ -1,0 +1,58 @@
+{
+  "summary": {
+    "passed": 4,
+    "total": 4
+  },
+  "results": [
+    {
+      "name": "happy_path",
+      "passed": true,
+      "status": "complete",
+      "steps": 4,
+      "checks": {
+        "completed": true,
+        "has_evidence": true,
+        "trace_complete": true,
+        "checkpoint_written": true
+      }
+    },
+    {
+      "name": "transient_search_failure",
+      "passed": true,
+      "status": "complete",
+      "steps": 4,
+      "checks": {
+        "completed": true,
+        "has_evidence": true,
+        "trace_complete": true,
+        "checkpoint_written": true,
+        "retry_observed": true
+      }
+    },
+    {
+      "name": "transient_read_failure",
+      "passed": true,
+      "status": "complete",
+      "steps": 4,
+      "checks": {
+        "completed": true,
+        "has_evidence": true,
+        "trace_complete": true,
+        "checkpoint_written": true,
+        "retry_observed": true
+      }
+    },
+    {
+      "name": "invalid_citation_recovery",
+      "passed": true,
+      "status": "complete",
+      "steps": 5,
+      "checks": {
+        "completed": true,
+        "has_evidence": true,
+        "trace_complete": true,
+        "checkpoint_written": true
+      }
+    }
+  ]
+}

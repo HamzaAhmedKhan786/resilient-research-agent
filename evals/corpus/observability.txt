@@ -1,0 +1,3 @@
+# Agent observability
+An append-only event trace makes an agent run inspectable after the fact.
+Useful events include decisions, tool calls, retry attempts, validation failures, and termination reasons. Traces should avoid secrets and unnecessarily large tool results.

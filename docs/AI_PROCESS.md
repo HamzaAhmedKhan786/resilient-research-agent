@@ -1,0 +1,49 @@
+# AI-assisted development process
+
+This repository was built interactively with Codex from the challenge specification. The source conversation must be exported separately and added unedited under `docs/dev-process/ai-sessions/`; this document describes the collaboration but does not substitute for that export.
+
+## What AI proposed
+
+- The narrow evidence-backed research domain and four-action loop.
+- Dataclass-based durable state, atomic checkpoint replacement, and JSONL traces.
+- Deterministic scripted planners and failure injection for reproducible evals.
+- The first CLI, Wikipedia adapter, local corpus, tests, documentation, and localhost UI implementation.
+
+## Decisions I directed or changed
+
+- Keep the system framework-free and standard-library-only.
+- Add a minimal browser UI while retaining the CLI.
+- Let users supply API keys through a masked UI field.
+- Use a session-only key lifecycle instead of encrypted persistent storage.
+- Separate evaluation-scenario counts from unit-test behavior counts.
+- Expand the repository into a publication checklist with explicit security and development-process artifacts.
+
+## Where AI-generated work failed
+
+The first deterministic example assumed search ranking would assign the retry document to `S2`. Trace inspection showed that `S2` was a different document, so a note failed exact-excerpt validation. The initial final-answer validator also accepted an answer when any citation matched saved evidence, allowing a second unsupported citation. The validator was corrected to require every cited source ID to be admitted evidence, and the example now discovers the two sources explicitly.
+
+The initial status summary also said “4/4 evaluation scenarios” and then listed two additional unit-test behaviors without distinguishing them. Documentation now reports four eval scenarios and two unit tests separately.
+
+## How suggestions were validated
+
+- Unit tests exercise unread evidence rejection/recovery and budget termination.
+- Deterministic evals inject search and read timeouts and an invalid citation.
+- Every relevant change is followed by compilation, tests, evals, or an HTTP smoke test.
+- The UI security smoke test submits a sentinel key and verifies it is absent from the status response.
+- Raw example traces were inspected manually, which caught the ranking/citation defect.
+
+## What I designed and prioritized
+
+The central product judgment is to demonstrate resilience through observable state transitions instead of tool breadth. Evidence must be admitted through objective checks; transient and semantic failures use different recovery paths; run state remains inspectable; and deterministic tests provide a stable baseline.
+
+## Overengineering explicitly rejected
+
+- Agent frameworks and multi-agent orchestration.
+- Embeddings or a vector database for a three-document eval corpus.
+- React or another frontend build system for a local form-and-trace UI.
+- Distributed workers and a database for a single-process demonstration.
+- Persistently encrypted API keys, which would introduce a key-management problem when session-only memory is sufficient.
+
+## Required original sessions
+
+Add the actual unedited HTML or PDF exports to `docs/dev-process/ai-sessions/`. Only secrets, personal contact details, and unrelated confidential material may be redacted, and every redaction must be documented. Do not replace original conversations with rewritten summaries.
