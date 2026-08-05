@@ -26,34 +26,34 @@ The API key crosses from the browser to the localhost server for the selected ru
 ```mermaid
 sequenceDiagram
     actor User
-    participant Loop as ResearchAgent
-    participant Model as Planner
-    participant Guard as Validator
-    participant Tool as Research tool
-    participant Disk as Checkpoint + trace
+    participant RA as ResearchAgent
+    participant LM as Planner
+    participant AV as Validator
+    participant RT as Research tool
+    participant CP as Checkpoint and trace
 
-    User->>Loop: High-level research goal
+    User->>RA: High-level research goal
     loop Until complete, failed, or budget exhausted
-        Loop->>Model: Goal + compact state + recent errors
-        Model-->>Loop: One next action
-        Loop->>Guard: Validate lifecycle and arguments
+        RA->>LM: Goal + compact state + recent errors
+        LM-->>RA: One next action
+        RA->>AV: Validate lifecycle and arguments
         alt valid search/read
-            Guard-->>Loop: accepted
-            Loop->>Tool: execute bounded operation
-            Tool-->>Loop: sources or document
+            AV-->>RA: accepted
+            RA->>RT: execute bounded operation
+            RT-->>RA: sources or document
         else valid note
-            Guard-->>Loop: accepted
-            Loop->>Loop: verify exact source span and subject relevance
+            AV-->>RA: accepted
+            RA->>RA: verify exact source span and subject relevance
         else valid finish
-            Guard-->>Loop: accepted
-            Loop->>Loop: validate source count, coverage, and citations
+            AV-->>RA: accepted
+            RA->>RA: validate source count, coverage, and citations
         else invalid or transient failure
-            Guard-->>Loop: typed error
-            Loop->>Loop: retry or expose error in next context
+            AV-->>RA: typed error
+            RA->>RA: retry or expose error in next context
         end
-        Loop->>Disk: append event and atomically save state
+        RA->>CP: append event and atomically save state
     end
-    Loop-->>User: cited result or explicit terminal status
+    RA-->>User: cited result or explicit terminal status
 ```
 
 ## Persisted versus transient data
