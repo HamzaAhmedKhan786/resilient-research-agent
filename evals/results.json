@@ -1,7 +1,7 @@
 {
   "summary": {
-    "passed": 4,
-    "total": 4
+    "passed": 6,
+    "total": 6
   },
   "results": [
     {
@@ -51,7 +51,35 @@
         "completed": true,
         "has_evidence": true,
         "trace_complete": true,
-        "checkpoint_written": true
+        "checkpoint_written": true,
+        "expected_validation_error_observed": true
+      }
+    },
+    {
+      "name": "adaptive_long_horizon",
+      "passed": true,
+      "status": "complete",
+      "steps": 8,
+      "checks": {
+        "completed": true,
+        "has_evidence": true,
+        "trace_complete": true,
+        "checkpoint_written": true,
+        "retry_observed": true,
+        "expected_validation_error_observed": true
+      }
+    },
+    {
+      "name": "irrelevant_source_recovery",
+      "passed": true,
+      "status": "complete",
+      "steps": 7,
+      "checks": {
+        "completed": true,
+        "has_evidence": true,
+        "trace_complete": true,
+        "checkpoint_written": true,
+        "source_abandoned_observed": true
       }
     }
   ]

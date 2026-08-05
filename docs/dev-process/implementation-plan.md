@@ -1,6 +1,6 @@
 # Implementation plan
 
-1. Implement structured state and a four-action research loop.
+1. Implement structured state and a small research loop, initially four actions and later one explicit source-abandonment transition.
 2. Add a minimal OpenAI Responses API adapter and Wikipedia/local-corpus tools.
 3. Validate actions, exact evidence excerpts, and final source citations.
 4. Add atomic checkpoints, append-only traces, retry policy, and step budget.

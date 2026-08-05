@@ -8,7 +8,7 @@ from typing import Any, Literal
 class Action:
     """A model-selected next action. Kept intentionally tiny and inspectable."""
 
-    kind: Literal["search", "read", "note", "finish"]
+    kind: Literal["search", "read", "note", "skip", "finish"]
     args: dict[str, Any] = field(default_factory=dict)
     rationale: str = ""
 
@@ -35,9 +35,14 @@ class AgentState:
     step: int = 0
     status: Literal["running", "complete", "budget_exhausted", "failed"] = "running"
     search_results: dict[str, dict[str, str]] = field(default_factory=dict)
+    search_queries: list[str] = field(default_factory=list)
     read_ids: list[str] = field(default_factory=list)
+    abandoned_ids: list[str] = field(default_factory=list)
     evidence: list[Evidence] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+    provider_retries: int = 0
+    tool_retries: int = 0
+    validation_failures: int = 0
     final_answer: str | None = None
 
     def to_dict(self) -> dict[str, Any]:

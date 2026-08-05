@@ -1,0 +1,50 @@
+{
+  "kind": "live_model_in_the_loop_with_manual_review",
+  "provider": "groq",
+  "goal": "Explain why the Tacoma Narrows Bridge collapsed in 1940 and distinguish the modern aeroelastic explanation from the commonly repeated resonance explanation. Use at least two relevant Wikipedia sources and cite every substantive claim.",
+  "model": "openai/gpt-oss-20b",
+  "status": "complete",
+  "steps": 6,
+  "evidence_sources": [
+    {
+      "source_id": "S1",
+      "title": "Tacoma Narrows Bridge",
+      "locator": "https://en.wikipedia.org/wiki/Tacoma_Narrows_Bridge"
+    },
+    {
+      "source_id": "S2",
+      "title": "Tacoma Narrows Bridge (1940)",
+      "locator": "https://en.wikipedia.org/wiki/Tacoma_Narrows_Bridge_%281940%29"
+    }
+  ],
+  "cited_source_ids": [
+    "S1",
+    "S2"
+  ],
+  "provider_retries": 0,
+  "tool_retries": 0,
+  "validation_failures": 0,
+  "checks": {
+    "completed": true,
+    "multi_step": true,
+    "two_sources_admitted": true,
+    "all_citations_admitted": true,
+    "every_substantive_sentence_cited": false,
+    "manual_claim_entailment_review": false,
+    "checkpoint_written": true,
+    "trace_written": true
+  },
+  "passed": false,
+  "review": [
+    "Several factual sentences did not carry their own citation.",
+    "The answer strengthened vertical movement into vertical and torsional movement observed by workers.",
+    "The uncertainty sentence was not supported by the admitted excerpts.",
+    "This result motivated the post-run sentence-level citation guard and stricter synthesis prompt."
+  ],
+  "limitations": [
+    "The original run predates the claim-level citation guard now in the harness.",
+    "Citation presence still does not independently prove entailment.",
+    "Wikipedia and model availability make live runs non-deterministic.",
+    "Token usage and dollar cost are not captured by the minimal adapter."
+  ]
+}

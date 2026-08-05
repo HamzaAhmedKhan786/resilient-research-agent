@@ -1,0 +1,15 @@
+{"step":0,"event":"run_started","detail":{"goal":"Compare checkpointing and retry logic for resilient agents.","resume":false}}
+{"step":1,"event":"action_selected","detail":{"kind":"search","args":{"query":"checkpoint durable state"},"rationale":"Find checkpoint material."}}
+{"step":1,"event":"search_completed","detail":{"query":"checkpoint durable state","returned":1,"new_sources":1}}
+{"step":2,"event":"action_selected","detail":{"kind":"read","args":{"source_id":"S1"},"rationale":"Inspect the strongest result."}}
+{"step":2,"event":"source_read","detail":{"source_id":"S1","characters":289}}
+{"step":3,"event":"action_selected","detail":{"kind":"note","args":{"source_id":"S1","excerpt":"A checkpoint lets a process resume from durable state instead of repeating all prior work."},"rationale":""}}
+{"step":3,"event":"evidence_saved","detail":{"source_id":"S1","excerpt":"A checkpoint lets a process resume from durable state instead of repeating all prior work."}}
+{"step":4,"event":"action_selected","detail":{"kind":"search","args":{"query":"bounded retries transient failures"},"rationale":"Find complementary retry material."}}
+{"step":4,"event":"search_completed","detail":{"query":"bounded retries transient failures","returned":2,"new_sources":2}}
+{"step":5,"event":"action_selected","detail":{"kind":"read","args":{"source_id":"S2"},"rationale":"Get a complementary source."}}
+{"step":5,"event":"source_read","detail":{"source_id":"S2","characters":279}}
+{"step":6,"event":"action_selected","detail":{"kind":"note","args":{"source_id":"S2","excerpt":"Retries should be bounded and reserved for failures likely to be transient."},"rationale":""}}
+{"step":6,"event":"evidence_saved","detail":{"source_id":"S2","excerpt":"Retries should be bounded and reserved for failures likely to be transient."}}
+{"step":7,"event":"action_selected","detail":{"kind":"finish","args":{"answer":"Checkpointing limits repeated work after interruption [S1], while bounded retries absorb transient faults without allowing endless loops [S2]. Together they address different failure modes."},"rationale":""}}
+{"step":7,"event":"run_completed","detail":{"evidence_count":2}}

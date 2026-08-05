@@ -5,7 +5,9 @@ The runtime appends a compact JSON object after the planner prompt with:
 - remaining step budget
 - discovered sources and stable IDs
 - extracts for sources read during the current process
+- read, unread, and explicitly abandoned source IDs
+- minimum-source requirement and uncovered comparison concepts
 - admitted evidence
 - the three most recent semantic errors
 
-The model returns exactly one structured action. The runtime validates the action against current state before any tool execution or state mutation.
+OpenAI returns exactly one structured action. For Groq, the runtime first derives the valid phase from state and asks for only the query, exact excerpt, or final prose needed in that phase. In both paths the runtime validates the result before any tool execution or state mutation.

@@ -4,7 +4,7 @@ This repository was built interactively with Codex from the challenge specificat
 
 ## What AI proposed
 
-- The narrow evidence-backed research domain and four-action loop.
+- The narrow evidence-backed research domain and initially four-action loop, later extended with one explicit `skip` transition after live traces exposed irrelevant-source trapping.
 - Dataclass-based durable state, atomic checkpoint replacement, and JSONL traces.
 - Deterministic scripted planners and failure injection for reproducible evals.
 - The first CLI, Wikipedia adapter, local corpus, tests, documentation, and localhost UI implementation.
@@ -22,14 +22,19 @@ This repository was built interactively with Codex from the challenge specificat
 
 The first deterministic example assumed search ranking would assign the retry document to `S2`. Trace inspection showed that `S2` was a different document, so a note failed exact-excerpt validation. The initial final-answer validator also accepted an answer when any citation matched saved evidence, allowing a second unsupported citation. The validator was corrected to require every cited source ID to be admitted evidence, and the example now discovers the two sources explicitly.
 
-The initial status summary also said “4/4 evaluation scenarios” and then listed two additional unit-test behaviors without distinguishing them. Documentation now reports four eval scenarios and two unit tests separately.
+The initial status summary said “4/4 evaluation scenarios” and then listed additional unit-test behaviors without distinguishing them. The current documentation reports six controlled evaluation scenarios and 41 unit tests separately.
+
+The first live run to reach `complete` also revealed that structural citation validation was not claim-level grounding. The answer cited admitted sources but included uncited background and unsupported uncertainty. The original run is preserved with an adverse manual review; the harness now rejects uncited factual sentences when the goal explicitly requires every substantive claim to be cited.
 
 ## How suggestions were validated
+
+Later live traces revealed two provider-specific defects that controlled tests had missed: OpenAI received a double-encoded request body, and Groq frequently failed forced function calls, first for long final answers and then for short note actions. The fixes were driven by persisted traces. The final Groq design removes provider tools entirely: the harness owns phase/source constraints and plain completions supply the research content. Regression tests cover request shape, deterministic reads, source-bound notes, terminal errors, synthesis, and evidence coverage. A first lexical coverage proposal was rejected as too broad and narrowed to explicit comparison concepts plus a small fallback.
 
 - Unit tests exercise unread evidence rejection/recovery and budget termination.
 - Deterministic evals inject search and read timeouts and an invalid citation.
 - Every relevant change is followed by compilation, tests, evals, or an HTTP smoke test.
 - The UI security smoke test submits a sentinel key and verifies it is absent from the status response.
+- A separately proposed expanded implementation was executed against the existing regression suite before reuse. It failed the offline demo, so only its retrieval validation and observability counters were selectively incorporated.
 - Raw example traces were inspected manually, which caught the ranking/citation defect.
 
 ## What I designed and prioritized

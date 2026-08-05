@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 from .agent import ResearchAgent
-from .model import OpenAIPlanner, ScriptedPlanner
+from .model import GroqPlanner, OpenAIPlanner, ScriptedPlanner
 from .tools import HttpTools, LocalCorpusTools
 from .types import Action
 
@@ -13,7 +13,8 @@ from .types import Action
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run the resilient research agent")
     parser.add_argument("goal", nargs="?", help="research goal")
-    parser.add_argument("--model", default="gpt-5-mini")
+    parser.add_argument("--provider", choices=["openai", "groq"], default="openai")
+    parser.add_argument("--model", help="provider model ID")
     parser.add_argument("--run-dir", type=Path, default=Path(".runs/live"))
     parser.add_argument("--max-steps", type=int, default=12)
     parser.add_argument("--resume", action="store_true")
@@ -28,12 +29,18 @@ def main() -> None:
         if not args.goal and not args.resume:
             parser.error("goal is required unless --resume is used")
         goal = args.goal or ""
-        planner = OpenAIPlanner(args.model)
+        planner = GroqPlanner(args.model or "openai/gpt-oss-20b") if args.provider == "groq" else OpenAIPlanner(args.model or "gpt-5-mini")
         tools = HttpTools()
 
     state = ResearchAgent(planner, tools, args.run_dir, args.max_steps).run(goal, args.resume)
     print(state.final_answer)
-    print(f"\nstatus={state.status} steps={state.step} trace={args.run_dir / 'trace.jsonl'}")
+    print(
+        f"\nstatus={state.status} steps={state.step} "
+        f"provider_retries={state.provider_retries} "
+        f"tool_retries={state.tool_retries} "
+        f"validation_failures={state.validation_failures} "
+        f"trace={args.run_dir / 'trace.jsonl'}"
+    )
 
 
 def _demo_actions() -> list[Action]:
