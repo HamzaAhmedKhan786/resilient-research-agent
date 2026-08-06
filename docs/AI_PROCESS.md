@@ -1,6 +1,6 @@
 # AI-assisted development process
 
-This repository was built interactively with Codex from the challenge specification. The source conversation must be exported separately and added unedited under `docs/dev-process/ai-sessions/`; this document describes the collaboration but does not substitute for that export.
+This repository was built interactively with Codex from the challenge specification. The original visible conversation is checked in as `docs/dev-process/ai-sessions/session-01-codex-transcript.md`; this document describes the collaboration but does not substitute for that export.
 
 ## What AI proposed
 
@@ -51,6 +51,6 @@ The central product judgment is to demonstrate resilience through observable sta
 - Distributed workers and a database for a single-process demonstration.
 - Persistently encrypted API keys, which would introduce a key-management problem when session-only memory is sufficient.
 
-## Required original sessions
+## Original session export
 
-Add the actual unedited HTML or PDF exports to `docs/dev-process/ai-sessions/`. Only secrets, personal contact details, and unrelated confidential material may be redacted, and every redaction must be documented. Do not replace original conversations with rewritten summaries.
+The mechanically extracted visible transcript is stored under `docs/dev-process/ai-sessions/`, together with a redaction note. Its user and assistant message text and ordering are unchanged except for the documented local-account-path redaction. Hidden runtime instructions, private reasoning, and tool protocol records are not published.

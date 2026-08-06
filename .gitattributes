@@ -4,3 +4,4 @@
 *.txt text eol=lf
 *.json text eol=lf
 *.toml text eol=lf
+docs/dev-process/ai-sessions/session-01-codex-transcript.md -whitespace

@@ -294,4 +294,4 @@ assets/screenshots/      sanitized UI evidence for the completed live run
 
 The original specification, plan, decisions, and exact planner prompt are in `docs/dev-process/`. `docs/AI_PROCESS.md` records AI contributions, corrections, validation, and rejected overengineering.
 
-The required unedited AI conversation export is intentionally not fabricated. Add it under `docs/dev-process/ai-sessions/` following that directory's redaction policy. The 3–5 minute video must also be recorded and linked before final submission.
+The original AI development conversation is included as a mechanically extracted visible transcript in [`docs/dev-process/ai-sessions/`](docs/dev-process/ai-sessions/), with its permitted privacy redaction documented alongside it. The 3–5 minute video must still be recorded and linked before final submission.
