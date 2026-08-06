@@ -1,0 +1,13 @@
+services:
+  research-agent:
+    build:
+      context: .
+    ports:
+      - "127.0.0.1:8765:8765"
+    init: true
+    volumes:
+      - agent-runs:/app/.runs
+    restart: unless-stopped
+
+volumes:
+  agent-runs:

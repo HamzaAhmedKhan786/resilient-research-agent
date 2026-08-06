@@ -11,7 +11,7 @@ Requirements: Python 3.11+ and, for live mode, an OpenAI, Groq, or company-issue
 ```powershell
 python -m venv .venv
 .venv\Scripts\Activate.ps1
-pip install -e .
+python -m pip install -r requirements.txt
 
 # Offline deterministic demonstration
 research-agent --demo --run-dir .runs/example
@@ -23,6 +23,8 @@ research-agent-ui
 python -m unittest discover -s tests -v
 python evals/run_evals.py
 ```
+
+`requirements.txt` installs this project from `pyproject.toml`. There are no third-party runtime or test dependencies; the harness intentionally uses the Python standard library only.
 
 Open the UI at `http://127.0.0.1:8765`. Offline demo mode is selected by default. Clear it, choose OpenAI, Groq, or Libra / Company, and enter that provider's API key. Groq defaults to `openai/gpt-oss-20b`; the harness selects the valid phase while Groq supplies plain-text search queries, evidence excerpts, and final synthesis. Libra defaults to the company-provided `gpt-5.6-sol` deployment.
 
@@ -42,6 +44,26 @@ research-agent "Compare two explanations for why the Tacoma Narrows Bridge faile
 ```
 
 The Libra credential is issued for the fixed company Azure endpoint and is not interchangeable with an OpenAI Platform key. The endpoint is safe to keep in source; the credential is not. Never commit the supplied key file or copy its value into `.env.example`, documentation, checkpoints, or traces.
+
+### Docker (optional)
+
+Docker provides a reproducible Python 3.14.3 environment and runs the UI as a non-root user. It is optional; the native setup above remains the shortest development path.
+
+```powershell
+# Build, start, and wait for the health check. The explicit env file prevents
+# Docker Compose from loading an unrelated local .env file.
+docker compose --env-file .env.example up --build -d
+docker compose --env-file .env.example ps
+
+# Run the complete deterministic test suite inside the image
+docker compose --env-file .env.example run --rm research-agent python -m unittest discover -s tests -v
+docker compose --env-file .env.example run --rm research-agent python evals/run_evals.py
+
+# Stop the UI (the named volume preserves run checkpoints)
+docker compose --env-file .env.example down
+```
+
+Open `http://127.0.0.1:8765` after the service becomes healthy. API keys entered in the UI are sent only to this local container for the selected run and are not stored. The documented commands explicitly use the empty `.env.example`, and `.dockerignore` excludes `.env`, so credentials are not baked into the image. For CLI live mode, pass only the needed key at runtime, for example `docker compose --env-file .env.example run --rm -e GROQ_API_KEY research-agent research-agent "your goal" --provider groq`.
 
 ## Architecture
 
@@ -282,6 +304,10 @@ README.md                overview and run instructions
 LICENSE                  MIT license
 .env.example             placeholder only; never a real key
 pyproject.toml           package metadata and console commands
+requirements.txt         local package install; no third-party dependencies
+Dockerfile               pinned Python 3.14.3 non-root UI image
+compose.yaml             localhost port and persistent checkpoint volume
+.dockerignore            excludes credentials, runs, caches, and large docs
 src/research_agent/      loop, prompts, state, tools, CLI, and UI
 tests/                   focused invariant tests
 evals/                   corpus, fault-injection harness, measured results
