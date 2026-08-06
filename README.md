@@ -2,6 +2,8 @@
 
 Resilient Research Agent is a narrow, evidence-backed research assistant for showing how a small agent makes decisions and recovers across multiple steps. A user supplies a goal through a CLI or dependency-free localhost UI; the agent searches Wikipedia, reads sources, admits verified excerpts, and produces a cited answer. The scope is intentionally limited so the decision loop, state, retries, checkpoints, and evaluation remain understandable without an agent framework.
 
+**Demo video (12:38):** [Watch the project walkthrough on Loom](https://www.loom.com/share/7ab2f8486021447592a032cada59a7fa)
+
 ![Completed live Groq research run](assets/screenshots/live-run-overview.png)
 
 ## Quick start
