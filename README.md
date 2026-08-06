@@ -26,7 +26,11 @@ python evals/run_evals.py
 
 `requirements.txt` installs this project from `pyproject.toml`. There are no third-party runtime or test dependencies; the harness intentionally uses the Python standard library only.
 
-Open the UI at `http://127.0.0.1:8765`. Offline demo mode is selected by default. Clear it, choose OpenAI, Groq, or Libra / Company, and enter that provider's API key. Groq defaults to `openai/gpt-oss-20b`; the harness selects the valid phase while Groq supplies plain-text search queries, evidence excerpts, and final synthesis. Libra defaults to the company-provided `gpt-5.6-sol` deployment.
+Open the UI at `http://127.0.0.1:8765`. Offline demo mode is selected by default. Clear it, choose OpenAI, Groq, or Libra / Company, and enter that provider's API key. Groq defaults to `openai/gpt-oss-20b`; the harness selects the valid phase while Groq supplies plain-text search queries, evidence excerpts, and final synthesis. Libra defaults to the company-provided `gpt-5.6-sol` deployment. The UI also exposes the total step budget and can resume interrupted, failed, or budget-exhausted saved runs. Resume restores the original goal/provider/model, requires a larger total budget, and asks for a live provider key again because keys are never persisted.
+
+![Resuming a saved research run with a larger step budget](assets/screenshots/resume-saved-run.png)
+
+The resume view makes the recovery boundary explicit: the saved goal, provider, and model are restored from the checkpoint, while the user supplies a new total step budget and re-enters the live provider key for that run only.
 
 For CLI live mode:
 
@@ -41,6 +45,9 @@ research-agent "Compare two explanations for why the Tacoma Narrows Bridge faile
 # Company-provided GPT-5.6 Sol access
 $env:LIBRA_INTERVIEW_API_KEY="company-key"
 research-agent "Compare two explanations for why the Tacoma Narrows Bridge failed" --provider libra
+
+# Continue a non-complete checkpoint with a higher total step budget
+research-agent --resume --run-dir .runs/live --max-steps 20
 ```
 
 The Libra credential is issued for the fixed company Azure endpoint and is not interchangeable with an OpenAI Platform key. The endpoint is safe to keep in source; the credential is not. Never commit the supplied key file or copy its value into `.env.example`, documentation, checkpoints, or traces.
@@ -159,7 +166,7 @@ Long read results are compacted to bounded, relevance-centered extracts in model
 | Missing requested source count, distinct citations, evidence coverage, or answer-to-goal coverage | Reject finish and expose the exact gap to the next decision. |
 | Detached or superscript citation | Repair only an unambiguous admitted source ID into `Claim [S1].`; unknown IDs remain invalid. |
 | Step budget exhausted | Stop deterministically with `budget_exhausted`. |
-| Process restart | Load durable state with `--resume` and re-fetch previously read source content. |
+| Process restart | Load durable state through CLI `--resume` or the UI saved-run selector, require a higher total step budget, and re-fetch previously read source content. |
 | Provider 429/5xx | Retry inside the current planning cycle using provider delay guidance; rate limits have a separate bounded cooldown budget and do not spend a logical research step. |
 | Bursty Groq calls | Keep at least 750 ms between request starts; this pacing is not a logical research step. |
 | Permanent provider 4xx | Fail immediately with a terminal provider event instead of repeating the same invalid request. |
@@ -200,7 +207,7 @@ Checked-in result: **7/7 controlled evaluation scenarios passing**.
 | Irrelevant source recovery | First read has no relevant evidence | source abandonment, changed source, cited completion | Pass, 7 steps |
 | Input/output relevance recovery | First answer omits a requested comparison term | rejection, error-conditioned revision, complete goal coverage | Pass, 8 steps |
 
-Detailed output is in `evals/results.json`. Separately, **55/55 unit tests pass** across agent, model, tool, and web-security coverage. They include OpenAI request serialization and pacing, Libra endpoint/authentication isolation, a full multi-step Groq plain-text run, superscript and detached-citation repair, answer-to-goal relevance recovery, timestamped/redacted trace records, lightweight stemming, uncovered-concept source ranking, focused follow-up queries, long-page evidence recovery, cross-subject evidence rejection, goal-concept source grounding, zero-result query fallback, source abandonment, relevance-centered context extraction, typography-tolerant exact evidence recovery, distinct-citation and claim-level citation validation, interruption/resume, circuit breaking, permanent quota errors, persisted retry accounting, corpus boundaries, Wikipedia response validation, locator construction, and API-key non-persistence. These unit tests are not part of the seven-scenario evaluation count.
+Detailed output is in `evals/results.json`. Separately, **61/61 unit tests pass** across agent, model, tool, and web-security coverage. They include OpenAI request serialization and pacing, Libra endpoint/authentication isolation, a full multi-step Groq plain-text run, superscript and detached-citation repair, answer-to-goal relevance recovery, timestamped/redacted trace records, lightweight stemming, uncovered-concept source ranking, focused follow-up queries, long-page evidence recovery, cross-subject evidence rejection, goal-concept source grounding, zero-result query fallback, source abandonment, relevance-centered context extraction, typography-tolerant exact evidence recovery, distinct-citation and claim-level citation validation, interruption/resume, terminal-checkpoint continuation, saved-run discovery and path validation, circuit breaking, permanent quota errors, persisted retry accounting, corpus boundaries, Wikipedia response validation, locator construction, and API-key non-persistence. These unit tests are not part of the seven-scenario evaluation count.
 
 The controlled harness remains the stable offline baseline. A separate live model-in-the-loop evaluation uses a fixed public research goal and a key that is never written to disk:
 
@@ -289,7 +296,7 @@ The extra time went primarily into reproducing real OpenAI/Groq failures, inspec
 - Search results and evidence have no semantic deduplication.
 - The evaluation set is small and mostly deterministic.
 - There is no live cross-model quality or cost comparison yet.
-- One process owns in-memory UI run state; server restart loses that status index.
+- One process owns active UI status; after restart, non-complete checkpoints remain discoverable and resumable, but completed-run browsing is not implemented.
 - There is no run cancellation mechanism.
 - Resume does not persist full retrieved pages.
 - Claim-level citation entailment is not evaluated.

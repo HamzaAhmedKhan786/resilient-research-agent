@@ -614,6 +614,51 @@ class AgentTests(unittest.TestCase):
             trace = (run_dir / "trace.jsonl").read_text(encoding="utf-8")
         self.assertEqual(resumed.status, "complete")
         self.assertEqual(trace.count('"event": "run_started"'), 2)
+        self.assertIn('"event": "run_resumed"', trace)
+
+    def test_budget_exhausted_checkpoint_resumes_with_higher_total_budget(self):
+        initial_actions = [
+            Action("search", {"query": "checkpoint"}),
+            Action("read", {"source_id": "S1"}),
+            Action(
+                "note",
+                {
+                    "source_id": "S1",
+                    "excerpt": "A checkpoint lets a process resume from durable state instead of repeating all prior work.",
+                },
+            ),
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp)
+            exhausted = ResearchAgent(
+                ScriptedPlanner(initial_actions), LocalCorpusTools(CORPUS), run_dir, max_steps=3
+            ).run("research")
+            resumed = ResearchAgent(
+                ScriptedPlanner([Action("finish", {"answer": "Checkpointing preserves prior work [S1]."})]),
+                LocalCorpusTools(CORPUS),
+                run_dir,
+                max_steps=4,
+            ).run("", resume=True)
+            trace = (run_dir / "trace.jsonl").read_text(encoding="utf-8")
+        self.assertEqual(exhausted.status, "budget_exhausted")
+        self.assertEqual(resumed.status, "complete")
+        self.assertIn('"previous_status": "budget_exhausted"', trace)
+
+    def test_resume_requires_existing_checkpoint_and_increased_budget(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp)
+            with self.assertRaisesRegex(FileNotFoundError, "checkpoint not found"):
+                ResearchAgent(ScriptedPlanner([]), LocalCorpusTools(CORPUS), run_dir).run("", resume=True)
+            ResearchAgent(
+                ScriptedPlanner([Action("search", {"query": "checkpoint"})]),
+                LocalCorpusTools(CORPUS),
+                run_dir,
+                max_steps=1,
+            ).run("research")
+            with self.assertRaisesRegex(ValueError, "greater than the checkpoint step"):
+                ResearchAgent(
+                    ScriptedPlanner([]), LocalCorpusTools(CORPUS), run_dir, max_steps=1
+                ).run("", resume=True)
 
     def test_repeated_planner_outage_opens_circuit(self):
         class OfflinePlanner:

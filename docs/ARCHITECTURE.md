@@ -60,9 +60,9 @@ sequenceDiagram
 
 | Persisted | Process memory only | Sent to the model |
 |---|---|---|
-| Goal, source metadata, read/abandoned IDs, admitted evidence, recent errors, counters, quality checks, answer | API key, full retrieved pages, active HTTP objects, UI thread state | Goal, ranked source metadata, bounded relevant extracts, admitted evidence, progress, last three errors |
+| Goal, source metadata, read/abandoned IDs, admitted evidence, recent errors, counters, quality checks, answer; UI mode/provider/model in separate non-secret run metadata | API key, full retrieved pages, active HTTP objects, UI thread state | Goal, ranked source metadata, bounded relevant extracts, admitted evidence, progress, last three errors |
 
-Full pages are not placed in checkpoints. A resumed run re-fetches previously read, non-abandoned pages and reconstructs only the bounded context needed for the next decision.
+Full pages are not placed in checkpoints. A resumed run re-fetches previously read, non-abandoned pages and reconstructs only the bounded context needed for the next decision. The UI discovers only safe, single-directory run IDs with valid checkpoints and non-secret run metadata; completed and currently active runs are not offered for resume.
 
 ## Failure boundaries
 

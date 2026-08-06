@@ -37,11 +37,26 @@ class ResearchAgent:
         self._documents: dict[str, str] = {}
 
     def run(self, goal: str, resume: bool = False) -> AgentState:
-        state = self._load() if resume and self.checkpoint_path.exists() else AgentState(goal, uuid.uuid4().hex[:12])
+        previous_status: str | None = None
+        if resume:
+            if not self.checkpoint_path.exists():
+                raise FileNotFoundError(f"checkpoint not found: {self.checkpoint_path}")
+            state = self._load()
+            previous_status = state.status
+            if state.status == "complete":
+                raise ValueError("a completed run cannot be resumed")
+            if self.max_steps <= state.step:
+                raise ValueError(f"max_steps must be greater than the checkpoint step ({state.step})")
+            state.status = "running"
+            state.final_answer = None
+            state.quality_checks = {}
+        else:
+            state = AgentState(goal, uuid.uuid4().hex[:12])
         previous_error: str | None = None
         repeated_errors = 0
         self._event(state, "run_started", {"goal": state.goal, "resume": resume})
         if resume:
+            self._event(state, "run_resumed", {"previous_status": previous_status, "max_steps": self.max_steps})
             self._restore_documents(state)
         while state.status == "running" and state.step < self.max_steps:
             try:
