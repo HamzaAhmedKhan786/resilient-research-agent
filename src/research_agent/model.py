@@ -103,6 +103,24 @@ class OpenAIPlanner(ResponsesPlanner):
         super().__init__(model, api_key or os.environ.get("OPENAI_API_KEY", ""), "https://api.openai.com/v1/responses", "OpenAI", timeout)
 
 
+class LibraPlanner(ResponsesPlanner):
+    """Company-provided GPT-5.6 Sol access through its fixed Responses endpoint."""
+
+    ENDPOINT = (
+        "https://libra-ai-interviews.services.ai.azure.com/"
+        "api/projects/proj-default/openai/v1/responses"
+    )
+
+    def __init__(self, model: str = "gpt-5.6-sol", timeout: int = 60, api_key: str | None = None):
+        super().__init__(
+            model,
+            api_key or os.environ.get("LIBRA_INTERVIEW_API_KEY", ""),
+            self.ENDPOINT,
+            "Libra",
+            timeout,
+        )
+
+
 class GroqPlanner(ResponsesPlanner):
     def __init__(
         self,
@@ -173,6 +191,11 @@ class GroqPlanner(ResponsesPlanner):
         if not query:
             raise ValueError("Groq returned an empty search query")
         normalized_searched = {self._normalize_query(item) for item in searched}
+        uncovered = [str(term) for term in progress.get("uncovered_goal_terms", [])]
+        query_stems = {self._term_key(word) for word in re.findall(r"[a-z0-9]+", query.lower())}
+        uncovered_stems = {self._term_key(term.lower()) for term in uncovered}
+        if progress.get("evidence_source_ids") and uncovered_stems and not query_stems.intersection(uncovered_stems):
+            query = self._fallback_query(compact, searched)
         if self._normalize_query(query) in normalized_searched:
             query = self._fallback_query(compact, searched)
         if not query:
@@ -198,10 +221,14 @@ class GroqPlanner(ResponsesPlanner):
             if len(word) > 2 and word.lower() not in omitted and not word.isdigit()
         ]
         uncovered = [str(term) for term in compact.get("progress", {}).get("uncovered_goal_terms", [])]
+        subject = [str(term) for term in compact.get("progress", {}).get("subject_terms", [])]
+        if not subject:
+            subject = goal_words[:3]
         candidates = [
-            " ".join(goal_words[:3]),
-            " ".join(uncovered),
+            " ".join([*subject, *uncovered][:6]),
+            " ".join([*goal_words[:3], *uncovered][:6]),
             " ".join(goal_words[:6]),
+            " ".join(uncovered),
         ]
         normalized_searched = {cls._normalize_query(item) for item in searched}
         return next((item for item in candidates if item and cls._normalize_query(item) not in normalized_searched), "")
@@ -209,6 +236,14 @@ class GroqPlanner(ResponsesPlanner):
     @staticmethod
     def _normalize_query(query: str) -> str:
         return " ".join(re.findall(r"[a-z0-9]+", query.lower()))
+
+    @staticmethod
+    def _term_key(term: str) -> str:
+        if term.endswith("ies") and len(term) > 5:
+            return term[:-3] + "y"
+        if term.endswith("s") and not term.endswith("ss") and len(term) > 4:
+            return term[:-1]
+        return term
 
     def _note(self, compact: dict, source_id: str) -> Action:
         extract = compact.get("read_extracts", {}).get(source_id, "")
@@ -266,6 +301,8 @@ class GroqPlanner(ResponsesPlanner):
                     "content": (
                         "Write the final research answer using only the saved evidence below. "
                         "Cite every substantive claim using only an ID in allowed_citation_ids. "
+                        "Use the exact ASCII citation format [S1], [S2], etc.; never use superscript numbers, footnotes, or bare numbers. "
+                        "Place each citation before the sentence-ending punctuation: correct `Claim [S1].`; incorrect `Claim. [S1]`. "
                         "Put a citation in every factual sentence, including uncertainty statements. "
                         "Do not add general background, definitions, causal details, or uncertainty unless the evidence states them. "
                         "Prefer a shorter fully supported answer over a broader answer containing reasonable but unsupported knowledge. "

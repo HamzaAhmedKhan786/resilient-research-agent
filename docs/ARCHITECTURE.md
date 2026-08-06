@@ -7,7 +7,7 @@ The design is intentionally one process and one agent loop. The language model p
 ```mermaid
 flowchart LR
     U["User goal<br/>CLI or localhost UI"] --> C["Context builder<br/>compact state view"]
-    C --> P["Planner adapter<br/>OpenAI or Groq"]
+    C --> P["Planner adapter<br/>OpenAI, Groq, or Libra"]
     P --> V["Action validator"]
     V --> A["Agent state machine"]
     A --> T["Research tools<br/>Wikipedia or local corpus"]
@@ -15,7 +15,7 @@ flowchart LR
     A --> E["Evidence ledger<br/>verified excerpts"]
     E --> C
     A --> K["Atomic checkpoint.json"]
-    A --> R["Append-only trace.jsonl"]
+    A --> R["Append-only trace.jsonl<br/>timestamped and redacted"]
     A --> O["Cited answer or bounded failure"]
 ```
 
@@ -46,7 +46,7 @@ sequenceDiagram
             RA->>RA: verify exact source span and subject relevance
         else valid finish
             AV-->>RA: accepted
-            RA->>RA: validate source count, coverage, and citations
+            RA->>RA: validate source count, input/output coverage, and citations
         else invalid or transient failure
             AV-->>RA: typed error
             RA->>RA: retry or expose error in next context
@@ -60,7 +60,7 @@ sequenceDiagram
 
 | Persisted | Process memory only | Sent to the model |
 |---|---|---|
-| Goal, source metadata, read/abandoned IDs, admitted evidence, recent errors, counters, answer | API key, full retrieved pages, active HTTP objects, UI thread state | Goal, ranked source metadata, bounded relevant extracts, admitted evidence, progress, last three errors |
+| Goal, source metadata, read/abandoned IDs, admitted evidence, recent errors, counters, quality checks, answer | API key, full retrieved pages, active HTTP objects, UI thread state | Goal, ranked source metadata, bounded relevant extracts, admitted evidence, progress, last three errors |
 
 Full pages are not placed in checkpoints. A resumed run re-fetches previously read, non-abandoned pages and reconstructs only the bounded context needed for the next decision.
 
@@ -69,6 +69,7 @@ Full pages are not placed in checkpoints. A resumed run re-fetches previously re
 - Transport failures receive bounded retry and backoff without consuming a logical agent step.
 - Provider errors are classified as rate-limit, generation, quota/authentication, or server failures.
 - Invalid actions and unsupported final answers become planner-visible validation errors.
+- Final answers must cover explicit goal concepts; claim-level citations are enforced when requested, while evidence-word overlap is logged only as a heuristic.
 - Three identical unrecoverable errors open the circuit.
 - The logical step budget prevents endless but varied behavior.
 - Every iteration writes observable state before the next decision.

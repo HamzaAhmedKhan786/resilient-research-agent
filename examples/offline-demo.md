@@ -14,6 +14,6 @@ Goal: Compare checkpointing and retry logic for resilient agents.
 
 Result:
 
-> Checkpointing limits repeated work after interruption [S1], while bounded retries absorb transient faults without allowing endless loops [S2]. Together they address different failure modes.
+> Checkpointing limits repeated work after interruption [S1], while bounded retries absorb transient faults without allowing endless loops [S2]. Together they address different failure modes [S1][S2].
 
 This run uses the deterministic planner and local corpus. It demonstrates the harness mechanics but is not presented as a live-model quality evaluation.

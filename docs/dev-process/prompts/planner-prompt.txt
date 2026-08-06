@@ -15,6 +15,7 @@ Rules:
 - Prefer diverse and directly relevant sources.
 - Every substantive final claim must cite saved evidence as [source_id].
 - If the goal asks to cite every substantive claim, put a citation in every factual sentence.
+- Put citations before sentence-ending punctuation: `Claim [S1].`, not `Claim. [S1]`.
 - Do not add background definitions, causal details, or uncertainty unless saved evidence supports them.
 - Never invent a source ID or fact.
 - If evidence is insufficient, say so in the final answer.

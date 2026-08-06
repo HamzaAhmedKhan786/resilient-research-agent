@@ -4,7 +4,7 @@
   "goal": "Explain why the Tacoma Narrows Bridge collapsed in 1940 and distinguish the modern aeroelastic explanation from the commonly repeated resonance explanation. Use at least two relevant Wikipedia sources and cite every substantive claim.",
   "model": "openai/gpt-oss-20b",
   "status": "complete",
-  "steps": 6,
+  "steps": 9,
   "evidence_sources": [
     {
       "source_id": "S1",
@@ -12,38 +12,46 @@
       "locator": "https://en.wikipedia.org/wiki/Tacoma_Narrows_Bridge"
     },
     {
-      "source_id": "S2",
-      "title": "Tacoma Narrows Bridge (1940)",
-      "locator": "https://en.wikipedia.org/wiki/Tacoma_Narrows_Bridge_%281940%29"
+      "source_id": "S6",
+      "title": "Mechanical resonance",
+      "locator": "https://en.wikipedia.org/wiki/Mechanical_resonance"
     }
   ],
   "cited_source_ids": [
     "S1",
-    "S2"
+    "S6"
   ],
   "provider_retries": 0,
   "tool_retries": 0,
   "validation_failures": 0,
+  "quality_checks": {
+    "goal_terms_covered": 2,
+    "goal_terms_total": 2,
+    "substantive_sentences": 2,
+    "cited_substantive_sentences": 2,
+    "sentences_with_evidence_overlap": 2,
+    "evidence_overlap_is_heuristic": true
+  },
   "checks": {
     "completed": true,
     "multi_step": true,
     "two_sources_admitted": true,
     "all_citations_admitted": true,
-    "every_substantive_sentence_cited": false,
-    "manual_claim_entailment_review": false,
+    "every_substantive_sentence_cited": true,
+    "requested_goal_terms_covered": true,
     "checkpoint_written": true,
-    "trace_written": true
+    "trace_written": true,
+    "manual_claim_entailment_review": false
   },
+  "structural_passed": true,
   "passed": false,
   "review": [
-    "Several factual sentences did not carry their own citation.",
-    "The answer strengthened vertical movement into vertical and torsional movement observed by workers.",
-    "The uncertainty sentence was not supported by the admitted excerpts.",
-    "This result motivated the post-run sentence-level citation guard and stricter synthesis prompt."
+    "S1 says possibly as a result of aeroelastic flutter, while the answer states the causal relationship definitively.",
+    "S6 supports wind/bridge interaction and aeroelastic flutter, but does not explicitly establish all of the answer's self-sustaining and natural-frequency contrast wording.",
+    "The run demonstrates that structural validation and lexical overlap do not independently prove semantic entailment."
   ],
   "limitations": [
-    "The original run predates the claim-level citation guard now in the harness.",
-    "Citation presence still does not independently prove entailment.",
+    "Citation presence and lexical overlap do not independently prove entailment.",
     "Wikipedia and model availability make live runs non-deterministic.",
     "Token usage and dollar cost are not captured by the minimal adapter."
   ]

@@ -72,6 +72,19 @@ def irrelevant_source_actions() -> list[Action]:
     ]
 
 
+def relevance_recovery_actions() -> list[Action]:
+    return [
+        Action("search", {"query": "checkpoint durable state"}),
+        Action("read", {"source_id": "S1"}),
+        Action("note", {"source_id": "S1", "excerpt": "A checkpoint lets a process resume from durable state instead of repeating all prior work."}),
+        Action("search", {"query": "bounded retries transient failures"}),
+        Action("read", {"source_id": "S2"}),
+        Action("note", {"source_id": "S2", "excerpt": "Retries should be bounded and reserved for failures likely to be transient."}),
+        Action("finish", {"answer": "Checkpointing preserves completed work [S1]."}),
+        Action("finish", {"answer": "Checkpointing preserves completed work [S1], while retries handle transient failures [S2]."}),
+    ]
+
+
 def run_case(
     name: str,
     plan: list[Action],
@@ -80,19 +93,24 @@ def run_case(
     planner=None,
     expected_event: str | None = None,
     expected_error: str | None = None,
+    goal: str = "Explain why checkpointing helps.",
 ) -> Result:
     run_dir = ROOT / ".runs" / "evals" / name
     if run_dir.exists():
         shutil.rmtree(run_dir)
     tools = LocalCorpusTools(ROOT / "evals" / "corpus")
     wrapped = FlakyTools(tools, failures or {})
-    state = ResearchAgent(planner or ScriptedPlanner(plan), wrapped, run_dir, max_steps=max_steps).run("Explain why checkpointing helps.")
+    state = ResearchAgent(planner or ScriptedPlanner(plan), wrapped, run_dir, max_steps=max_steps).run(goal)
     trace = [json.loads(line) for line in (run_dir / "trace.jsonl").read_text(encoding="utf-8").splitlines()]
     checks = {
         "completed": state.status == "complete",
         "has_evidence": bool(state.evidence),
         "trace_complete": any(e["event"] == "run_completed" for e in trace),
         "checkpoint_written": (run_dir / "checkpoint.json").exists(),
+        "answer_quality_logged": any(e["event"] == "answer_validated" for e in trace),
+        "input_output_terms_covered": (
+            state.quality_checks.get("goal_terms_covered") == state.quality_checks.get("goal_terms_total")
+        ),
     }
     if failures:
         checks["retry_observed"] = any(e["event"] == "retry" for e in trace)
@@ -118,6 +136,13 @@ def main() -> int:
             planner=AdaptivePlanner(), expected_error="every final citation",
         ),
         run_case("irrelevant_source_recovery", irrelevant_source_actions(), expected_event="source_abandoned"),
+        run_case(
+            "input_output_relevance_recovery",
+            relevance_recovery_actions(),
+            max_steps=9,
+            expected_error="final answer does not address",
+            goal="Compare checkpointing and retry logic for resilient agents.",
+        ),
     ]
     output = {"summary": {"passed": sum(r.passed for r in results), "total": len(results)}, "results": [asdict(r) for r in results]}
     result_path = ROOT / "evals" / "results.json"

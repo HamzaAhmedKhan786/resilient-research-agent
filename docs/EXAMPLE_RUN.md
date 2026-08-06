@@ -27,4 +27,4 @@ The generated `trace.jsonl` contains the full machine-readable sequence, includi
 
 ## Live run
 
-[`examples/live-run.md`](../examples/live-run.md) records a real six-step Groq run from goal to answer, and [`examples/live-trace.jsonl`](../examples/live-trace.jsonl) preserves its sanitized event sequence. It completed structurally with two Wikipedia sources, but manual review found uncited and unsupported prose. That finding produced the claim-level citation guard and stricter synthesis prompt now covered by regression tests.
+[`examples/live-run.md`](../examples/live-run.md) records a real nine-step post-fix Groq run from goal to answer, and [`examples/live-trace.jsonl`](../examples/live-trace.jsonl) preserves its sanitized event sequence. It completed with two Wikipedia sources, full structural goal/citation coverage, no operational errors, and one adaptive source-abandonment transition. Manual review still identifies two places where the answer is stronger than the admitted excerpts, documenting the remaining entailment limitation honestly.

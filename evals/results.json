@@ -1,7 +1,7 @@
 {
   "summary": {
-    "passed": 6,
-    "total": 6
+    "passed": 7,
+    "total": 7
   },
   "results": [
     {
@@ -13,7 +13,9 @@
         "completed": true,
         "has_evidence": true,
         "trace_complete": true,
-        "checkpoint_written": true
+        "checkpoint_written": true,
+        "answer_quality_logged": true,
+        "input_output_terms_covered": true
       }
     },
     {
@@ -26,6 +28,8 @@
         "has_evidence": true,
         "trace_complete": true,
         "checkpoint_written": true,
+        "answer_quality_logged": true,
+        "input_output_terms_covered": true,
         "retry_observed": true
       }
     },
@@ -39,6 +43,8 @@
         "has_evidence": true,
         "trace_complete": true,
         "checkpoint_written": true,
+        "answer_quality_logged": true,
+        "input_output_terms_covered": true,
         "retry_observed": true
       }
     },
@@ -52,6 +58,8 @@
         "has_evidence": true,
         "trace_complete": true,
         "checkpoint_written": true,
+        "answer_quality_logged": true,
+        "input_output_terms_covered": true,
         "expected_validation_error_observed": true
       }
     },
@@ -65,6 +73,8 @@
         "has_evidence": true,
         "trace_complete": true,
         "checkpoint_written": true,
+        "answer_quality_logged": true,
+        "input_output_terms_covered": true,
         "retry_observed": true,
         "expected_validation_error_observed": true
       }
@@ -79,7 +89,24 @@
         "has_evidence": true,
         "trace_complete": true,
         "checkpoint_written": true,
+        "answer_quality_logged": true,
+        "input_output_terms_covered": true,
         "source_abandoned_observed": true
+      }
+    },
+    {
+      "name": "input_output_relevance_recovery",
+      "passed": true,
+      "status": "complete",
+      "steps": 8,
+      "checks": {
+        "completed": true,
+        "has_evidence": true,
+        "trace_complete": true,
+        "checkpoint_written": true,
+        "answer_quality_logged": true,
+        "input_output_terms_covered": true,
+        "expected_validation_error_observed": true
       }
     }
   ]

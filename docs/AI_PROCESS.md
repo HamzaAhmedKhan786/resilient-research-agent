@@ -22,9 +22,11 @@ This repository was built interactively with Codex from the challenge specificat
 
 The first deterministic example assumed search ranking would assign the retry document to `S2`. Trace inspection showed that `S2` was a different document, so a note failed exact-excerpt validation. The initial final-answer validator also accepted an answer when any citation matched saved evidence, allowing a second unsupported citation. The validator was corrected to require every cited source ID to be admitted evidence, and the example now discovers the two sources explicitly.
 
-The initial status summary said “4/4 evaluation scenarios” and then listed additional unit-test behaviors without distinguishing them. The current documentation reports six controlled evaluation scenarios and 41 unit tests separately.
+The initial status summary said “4/4 evaluation scenarios” and then listed additional unit-test behaviors without distinguishing them. The current documentation reports seven controlled evaluation scenarios and 55 unit tests separately.
 
 The first live run to reach `complete` also revealed that structural citation validation was not claim-level grounding. The answer cited admitted sources but included uncited background and unsupported uncertainty. The original run is preserved with an adverse manual review; the harness now rejects uncited factual sentences when the goal explicitly requires every substantive claim to be cited.
+
+A later run retrieved the right two sources but failed because the model emitted `Claim. [S2]`, leaving the citation outside the sentence recognized by the validator. The repair is deliberately narrow: only IDs already present in the evidence ledger are moved before punctuation. The same finish path now rejects an answer that omits an explicit input comparison term and logs goal coverage, citation coverage, and evidence-word overlap. The overlap score is not presented as proof of entailment.
 
 ## How suggestions were validated
 

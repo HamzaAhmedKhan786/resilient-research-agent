@@ -53,6 +53,7 @@ class HttpTools:
 
     timeout: int = 20
     user_agent: str = "resilient-research-agent/0.1 (evaluation project)"
+    max_document_chars: int = 100_000
 
     def search(self, query: str) -> list[dict[str, str]]:
         params = urllib.parse.urlencode({"action": "query", "list": "search", "srsearch": query, "format": "json", "utf8": 1})
@@ -80,7 +81,7 @@ class HttpTools:
         extract = page.get("extract", "")
         if not extract.strip():
             raise ValueError("Wikipedia page extract is empty")
-        return extract[:30000]
+        return extract[:self.max_document_chars]
 
     def _get_json(self, url: str) -> dict:
         request = urllib.request.Request(url, headers={"User-Agent": self.user_agent})

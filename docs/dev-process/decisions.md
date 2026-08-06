@@ -26,11 +26,19 @@ Another healthy-provider run showed that topical terms alone were insufficient: 
 
 The finish validator checks explicit minimum-source requests against both admitted evidence and distinct citations, plus a bounded lexical set of important goal terms. This is intentionally an observable heuristic rather than an LLM judge; it caught the Tacoma run's missing resonance evidence, but synonyms can still produce false gaps.
 
+The same bounded goal-term check now applies to the final answer, not only the evidence ledger. This establishes a deterministic input/output relevance link for explicit comparison terms. The trace also reports cited-sentence coverage and lexical overlap with cited excerpts. Overlap is diagnostic rather than terminal because it cannot establish entailment and may underrate a faithful paraphrase.
+
+Wikipedia extracts are retained locally up to 100,000 characters and only then compacted to a 3,600-character relevance-centered model view. This prevents relevant passages late in long articles from disappearing while keeping model context bounded. Once evidence exists, a follow-up search that omits every uncovered concept is replaced with a focused subject-plus-concept query; this prevents broad fallbacks such as `resonance` from consuming the remaining step budget on unrelated medical or nuclear pages.
+
 For goals that explicitly request a citation for every substantive claim, the validator also requires an inline admitted-source citation in every factual-looking sentence. This improves citation coverage but still does not prove entailment; the live example therefore includes a separate manual quality review.
+
+One Groq run produced correct source numbers as Unicode superscripts (`¹`, `³`) instead of the required `[S1]`, `[S3]` form on its final budgeted step. The harness now repairs only superscript numbers that map unambiguously to admitted evidence, traces that repair, and leaves unknown numbers invalid. Once evidence exists, unread-source ranking also excludes results that do not mention the currently uncovered comparison concept. A source whose title names a different subject must name the requested subject near the start of the proposed excerpt, preventing evidence about modifications to another bridge from becoming a claim about Tacoma.
 
 ## Durable JSON and JSONL
 
 Atomic JSON checkpoints and append-only JSONL traces were chosen over a database. They are inspectable and sufficient for one local process, but not safe coordination for distributed workers.
+
+Trace events now include UTC timestamps and run IDs, and trace/checkpoint error strings pass through credential-pattern redaction. Server console logs intentionally contain only run lifecycle metadata rather than goals, evidence, or credentials.
 
 Provider retries, tool retries, and validation failures are stored as small aggregate counters and shown in the CLI and UI. These do not replace the trace; they make run health immediately visible without adding a metrics service.
 
@@ -41,6 +49,8 @@ Scripted decisions and a local corpus isolate harness behavior from model and ne
 ## Session-only API keys
 
 The initial environment-only design was expanded to accept a user key in the UI. A proposal to “encrypt and store” it was rejected: a local app would also need to protect the decryption key. The implemented design transmits the key to localhost for one run, retains it only in process memory, and excludes it from artifacts and responses.
+
+The company later supplied access to `gpt-5.6-sol` through a private OpenAI-compatible Azure endpoint. It is represented as a separate `libra` provider so its credential can never be routed to the public OpenAI or Groq endpoints. The endpoint and model are configuration; the company-issued key remains session-only.
 
 ## Simplicity over expansion
 

@@ -26,6 +26,8 @@ class Event:
     step: int
     event: str
     detail: dict[str, Any]
+    run_id: str = ""
+    timestamp: str = ""
 
 
 @dataclass
@@ -43,6 +45,7 @@ class AgentState:
     provider_retries: int = 0
     tool_retries: int = 0
     validation_failures: int = 0
+    quality_checks: dict[str, Any] = field(default_factory=dict)
     final_answer: str | None = None
 
     def to_dict(self) -> dict[str, Any]:

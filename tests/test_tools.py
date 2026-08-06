@@ -55,6 +55,15 @@ class ToolTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "extract is empty"):
                 tools.read("https://en.wikipedia.org/wiki/Empty")
 
+    def test_wikipedia_read_keeps_relevant_passages_beyond_old_prefix(self):
+        tools = HttpTools(max_document_chars=100_000)
+        extract = "A" * 35_000 + " Tacoma Narrows Bridge resonance evidence " + "B" * 35_000
+        payload = {"query": {"pages": {"1": {"extract": extract}}}}
+        with patch.object(tools, "_get_json", return_value=payload):
+            document = tools.read("https://en.wikipedia.org/wiki/Resonance")
+        self.assertIn("Tacoma Narrows Bridge resonance evidence", document)
+        self.assertEqual(document, extract)
+
 
 if __name__ == "__main__":
     unittest.main()

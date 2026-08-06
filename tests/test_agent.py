@@ -10,7 +10,7 @@ from pathlib import Path
 from research_agent.agent import ResearchAgent
 from research_agent.model import GroqPlanner, OpenAIPlanner, ProviderHTTPError, ScriptedPlanner
 from research_agent.tools import FlakyTools, LocalCorpusTools
-from research_agent.types import Action, AgentState
+from research_agent.types import Action, AgentState, Evidence
 
 
 CORPUS = Path(__file__).resolve().parents[1] / "evals" / "corpus"
@@ -27,6 +27,11 @@ class AgentTests(unittest.TestCase):
                 self.close()
 
         return Response(json.dumps(payload).encode())
+
+    def test_lightweight_stemmer_preserves_singular_word_endings(self):
+        self.assertEqual(ResearchAgent._stem("failures"), "failure")
+        self.assertEqual(ResearchAgent._stem("bridges"), "bridge")
+        self.assertEqual(ResearchAgent._stem("retries"), "retry")
 
     def test_openai_request_body_is_an_object_not_double_encoded(self):
         response = {"output_text": json.dumps({
@@ -83,7 +88,7 @@ class AgentTests(unittest.TestCase):
             action = GroqPlanner(api_key="sentinel-test-key").next_action("system", state)
         urlopen.assert_not_called()
         self.assertEqual(action.kind, "search")
-        self.assertEqual(action.args["query"], "Tacoma Narrows Bridge")
+        self.assertEqual(action.args["query"], "Tacoma Narrows Bridge aeroelastic resonance")
         self.assertNotEqual(action.args["query"], previous)
 
     def test_groq_planner_forces_note_after_read(self):
@@ -320,6 +325,23 @@ class AgentTests(unittest.TestCase):
             view = ResearchAgent(ScriptedPlanner([]), LocalCorpusTools(CORPUS), Path(tmp))._view(state)
         self.assertEqual(view["progress"]["coverage_candidate_ids"][0], "S2")
 
+    def test_coverage_candidates_require_the_uncovered_concept_after_evidence(self):
+        state = AgentState(
+            goal="Explain why the Tacoma Narrows Bridge collapsed and distinguish aeroelastic flutter from resonance.",
+            run_id="coverage",
+            search_results={
+                "S1": {"title": "Tacoma Narrows Bridge", "locator": "one", "snippet": "The bridge collapsed in wind."},
+                "S2": {"title": "Tacoma Narrows Bridge (1940)", "locator": "two", "snippet": "Aeroelastic flutter caused collapse."},
+                "S3": {"title": "Structural integrity and failure", "locator": "three", "snippet": "Tacoma is often misdescribed as resonance."},
+            },
+            read_ids=["S2"],
+            evidence=[Evidence("S2", "Tacoma Narrows Bridge (1940)", "two", "Aeroelastic flutter caused collapse.")],
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            view = ResearchAgent(ScriptedPlanner([]), LocalCorpusTools(CORPUS), Path(tmp))._view(state)
+        self.assertEqual(view["progress"]["uncovered_goal_terms"], ["resonance"])
+        self.assertEqual(view["progress"]["coverage_candidate_ids"], ["S3"])
+
     def test_note_rejects_analogous_event_then_accepts_goal_subject(self):
         class OneSource:
             def search(self, query: str):
@@ -346,6 +368,61 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(state.validation_failures, 1)
         self.assertTrue(any("does not mention the goal subject" in error for error in state.errors))
 
+    def test_note_rejects_late_subject_reference_from_another_bridge(self):
+        class MixedSubjectSource:
+            def search(self, query: str):
+                return [{"title": "Golden Gate Bridge", "locator": "bridge", "snippet": "Bridge strengthening"}]
+
+            def read(self, locator: str):
+                return (
+                    "The deck was stiffened in torsion to resist the twisting that destroyed the Tacoma Narrows Bridge. "
+                    "The Tacoma Narrows Bridge collapsed after aeroelastic instability."
+                )
+
+        plan = [
+            Action("search", {"query": "Tacoma bridge"}),
+            Action("read", {"source_id": "S1"}),
+            Action("note", {"source_id": "S1", "excerpt": "The deck was stiffened in torsion to resist the twisting that destroyed the Tacoma Narrows Bridge."}),
+            Action("note", {"source_id": "S1", "excerpt": "The Tacoma Narrows Bridge collapsed after aeroelastic instability."}),
+            Action("finish", {"answer": "The Tacoma Narrows Bridge collapsed after aeroelastic instability [S1]."}),
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            state = ResearchAgent(ScriptedPlanner(plan), MixedSubjectSource(), Path(tmp)).run(
+                "Explain why the Tacoma Narrows Bridge collapsed."
+            )
+        self.assertEqual(state.status, "complete")
+        self.assertEqual(state.validation_failures, 1)
+
+    def test_goal_concept_source_allows_later_explicit_subject_reference(self):
+        class ResonanceSource:
+            def search(self, query: str):
+                return [{"title": "Mechanical resonance", "locator": "resonance", "snippet": "Galloping Gertie"}]
+
+            def read(self, locator: str):
+                return (
+                    "The dramatic rhythmic twisting that resulted in the 1940 collapse of Galloping Gertie, "
+                    "the original Tacoma Narrows Bridge, is sometimes characterized as resonance, although "
+                    "the vibrations were due to aeroelastic flutter."
+                )
+
+        excerpt = (
+            "The dramatic rhythmic twisting that resulted in the 1940 collapse of Galloping Gertie, "
+            "the original Tacoma Narrows Bridge, is sometimes characterized as resonance, although "
+            "the vibrations were due to aeroelastic flutter."
+        )
+        plan = [
+            Action("search", {"query": "Tacoma resonance"}),
+            Action("read", {"source_id": "S1"}),
+            Action("note", {"source_id": "S1", "excerpt": excerpt}),
+            Action("finish", {"answer": "The Tacoma Narrows Bridge collapse is often described as resonance but involved aeroelastic flutter [S1]."}),
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            state = ResearchAgent(ScriptedPlanner(plan), ResonanceSource(), Path(tmp)).run(
+                "Explain why the Tacoma Narrows Bridge collapsed and distinguish aeroelastic flutter from resonance."
+            )
+        self.assertEqual(state.status, "complete")
+        self.assertEqual(state.validation_failures, 0)
+
     def test_subject_titled_source_allows_contextual_bridge_excerpt(self):
         class TacomaSource:
             def search(self, query: str):
@@ -359,7 +436,7 @@ class AgentTests(unittest.TestCase):
             Action("search", {"query": "Tacoma bridge"}),
             Action("read", {"source_id": "S1"}),
             Action("note", {"source_id": "S1", "excerpt": excerpt}),
-            Action("finish", {"answer": "The collapse involved aeroelastic flutter rather than elementary resonance [S1]."}),
+            Action("finish", {"answer": "The Tacoma Narrows Bridge collapse involved aeroelastic flutter rather than elementary resonance [S1]."}),
         ]
         with tempfile.TemporaryDirectory() as tmp:
             state = ResearchAgent(ScriptedPlanner(plan), TacomaSource(), Path(tmp)).run(
@@ -404,6 +481,88 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(state.status, "complete")
         self.assertEqual(state.validation_failures, 1)
         self.assertTrue(any("every substantive sentence" in error for error in state.errors))
+
+    def test_finish_normalizes_admitted_superscript_citations(self):
+        excerpt = "A checkpoint lets a process resume from durable state instead of repeating all prior work."
+        plan = [
+            Action("search", {"query": "checkpoint durable state"}),
+            Action("read", {"source_id": "S1"}),
+            Action("note", {"source_id": "S1", "excerpt": excerpt}),
+            Action("finish", {"answer": "Checkpointing avoids repeated work.¹"}),
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp)
+            state = ResearchAgent(ScriptedPlanner(plan), LocalCorpusTools(CORPUS), run_dir).run(
+                "Explain checkpointing and cite every substantive claim."
+            )
+            trace = (run_dir / "trace.jsonl").read_text(encoding="utf-8")
+        self.assertEqual(state.status, "complete")
+        self.assertEqual(state.final_answer, "Checkpointing avoids repeated work [S1].")
+        self.assertIn('"event": "citations_normalized"', trace)
+
+    def test_finish_moves_detached_citation_before_sentence_punctuation(self):
+        excerpt = "A checkpoint lets a process resume from durable state instead of repeating all prior work."
+        plan = [
+            Action("search", {"query": "checkpoint durable state"}),
+            Action("read", {"source_id": "S1"}),
+            Action("note", {"source_id": "S1", "excerpt": excerpt}),
+            Action("finish", {"answer": "Checkpointing avoids repeated work. [S1]"}),
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            state = ResearchAgent(ScriptedPlanner(plan), LocalCorpusTools(CORPUS), Path(tmp)).run(
+                "Explain checkpointing and cite every substantive claim."
+            )
+        self.assertEqual(state.status, "complete")
+        self.assertEqual(state.final_answer, "Checkpointing avoids repeated work [S1].")
+
+    def test_finish_rejects_answer_that_omits_requested_comparison_term_then_recovers(self):
+        class ComparisonSource:
+            def search(self, query: str):
+                return [{"title": "Tacoma Narrows Bridge", "locator": "tacoma"}]
+
+            def read(self, locator: str):
+                return "The Tacoma Narrows Bridge collapse involved aeroelastic flutter rather than resonance."
+
+        excerpt = "The Tacoma Narrows Bridge collapse involved aeroelastic flutter rather than resonance."
+        plan = [
+            Action("search", {"query": "Tacoma bridge flutter resonance"}),
+            Action("read", {"source_id": "S1"}),
+            Action("note", {"source_id": "S1", "excerpt": excerpt}),
+            Action("finish", {"answer": "The Tacoma Narrows Bridge collapse involved aeroelastic flutter [S1]."}),
+            Action("finish", {"answer": "The Tacoma Narrows Bridge collapse involved aeroelastic flutter rather than resonance [S1]."}),
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            state = ResearchAgent(ScriptedPlanner(plan), ComparisonSource(), Path(tmp)).run(
+                "Explain why the Tacoma Narrows Bridge collapsed and distinguish aeroelastic flutter from resonance."
+            )
+        self.assertEqual(state.status, "complete")
+        self.assertEqual(state.validation_failures, 1)
+        self.assertTrue(any("final answer does not address" in error for error in state.errors))
+        self.assertEqual(state.quality_checks["goal_terms_covered"], state.quality_checks["goal_terms_total"])
+
+    def test_trace_has_run_metadata_quality_metrics_and_redacts_secrets(self):
+        class SecretThenFinish:
+            def __init__(self):
+                self.calls = 0
+
+            def next_action(self, system: str, state: str) -> Action:
+                self.calls += 1
+                if self.calls == 1:
+                    raise ValueError("bad credential gsk_1234567890secret and Bearer abcdefghijkl")
+                return Action("finish", {"answer": "Insufficient evidence; no supported conclusion."})
+
+        with tempfile.TemporaryDirectory() as tmp:
+            run_dir = Path(tmp)
+            state = ResearchAgent(SecretThenFinish(), LocalCorpusTools(CORPUS), run_dir).run("research")
+            records = [json.loads(line) for line in (run_dir / "trace.jsonl").read_text(encoding="utf-8").splitlines()]
+            raw_trace = (run_dir / "trace.jsonl").read_text(encoding="utf-8")
+            raw_checkpoint = (run_dir / "checkpoint.json").read_text(encoding="utf-8")
+        self.assertEqual(state.status, "complete")
+        self.assertTrue(all(record["run_id"] == state.run_id for record in records))
+        self.assertTrue(all(record["timestamp"] for record in records))
+        self.assertTrue(any(record["event"] == "answer_validated" for record in records))
+        self.assertNotIn("gsk_1234567890secret", raw_trace + raw_checkpoint)
+        self.assertNotIn("Bearer abcdefghijkl", raw_trace + raw_checkpoint)
 
     def test_rejects_unread_evidence_then_recovers(self):
         plan = [

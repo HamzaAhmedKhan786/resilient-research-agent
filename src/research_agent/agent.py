@@ -6,6 +6,7 @@ import time
 import unicodedata
 import urllib.error
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 
 from .model import Planner, ProviderHTTPError
@@ -51,12 +52,13 @@ class ResearchAgent:
                 self._execute(action, state)
                 previous_error, repeated_errors = None, 0
             except Exception as exc:
-                message = f"step {state.step}: {type(exc).__name__}: {exc}"
+                safe_error = self._redact_text(str(exc))
+                message = f"step {state.step}: {type(exc).__name__}: {safe_error}"
                 state.errors.append(message)
                 self._event(state, "step_error", {"error": message})
                 if isinstance(exc, ValueError) and not isinstance(exc, ProviderHTTPError):
                     state.validation_failures += 1
-                fingerprint = f"{type(exc).__name__}: {exc}"
+                fingerprint = f"{type(exc).__name__}: {safe_error}"
                 repeated_errors = repeated_errors + 1 if fingerprint == previous_error else 1
                 previous_error = fingerprint
                 if isinstance(exc, ProviderHTTPError):
@@ -112,10 +114,17 @@ class ResearchAgent:
             item = state.search_results[sid]
             subject_terms = self._subject_terms(state.goal)
             identity_terms = subject_terms[:2]
-            excerpt_stems = self._token_stems(excerpt)
+            excerpt_words = re.findall(r"[a-z0-9]+", excerpt.lower())
+            leading_excerpt_stems = {self._stem(word) for word in excerpt_words[:10]}
+            excerpt_stems = {self._stem(word) for word in excerpt_words}
             title_stems = self._token_stems(item.get("title", ""))
             title_identifies_subject = all(self._stem(term) in title_stems for term in identity_terms)
-            excerpt_names_subject = bool({self._stem(term) for term in identity_terms}.intersection(excerpt_stems))
+            subject_in_opening = all(self._stem(term) in leading_excerpt_stems for term in identity_terms)
+            subject_anywhere = all(self._stem(term) in excerpt_stems for term in identity_terms)
+            subject_stems = {self._stem(term) for term in subject_terms}
+            concept_stems = {self._stem(term) for term in self._goal_terms(state.goal)} - subject_stems
+            title_matches_goal_concept = bool(concept_stems.intersection(title_stems))
+            excerpt_names_subject = subject_in_opening or (title_matches_goal_concept and subject_anywhere)
             if identity_terms and not (title_identifies_subject or excerpt_names_subject):
                 raise ValueError(
                     "evidence excerpt does not mention the goal subject; choose direct evidence or abandon the source"
@@ -132,8 +141,12 @@ class ResearchAgent:
             self._event(state, "source_abandoned", {"source_id": sid, "reason": action.rationale or "no relevant verbatim evidence"})
         else:
             answer = action.args["answer"].strip()
-            cited = set(re.findall(r"\[(S\d+)\]", answer))
             saved = {item.source_id for item in state.evidence}
+            normalized_answer = self._normalize_superscript_citations(answer, saved)
+            if normalized_answer != answer:
+                answer = normalized_answer
+                self._event(state, "citations_normalized", {"format": "admitted_source_id_inline"})
+            cited = set(re.findall(r"\[(S\d+)\]", answer))
             if state.evidence and (not cited or not cited.issubset(saved)):
                 raise ValueError("every final citation must refer to saved evidence")
             minimum_sources = self._minimum_sources(state.goal)
@@ -152,6 +165,16 @@ class ResearchAgent:
             uncovered = self._uncovered_goal_terms(state)
             if state.evidence and uncovered:
                 raise ValueError(f"saved evidence does not cover these goal terms: {', '.join(uncovered)}")
+            unanswered = self._uncovered_answer_terms(state.goal, answer)
+            if state.evidence and unanswered:
+                raise ValueError(f"final answer does not address these goal terms: {', '.join(unanswered)}")
+            subject_terms = self._subject_terms(state.goal)
+            answer_stems = self._token_stems(answer)
+            missing_subject = [term for term in subject_terms if self._stem(term) not in answer_stems]
+            if state.evidence and missing_subject:
+                raise ValueError(f"final answer does not identify the goal subject: {', '.join(missing_subject)}")
+            state.quality_checks = self._answer_quality(answer, state)
+            self._event(state, "answer_validated", state.quality_checks)
             state.final_answer, state.status = answer, "complete"
             self._event(state, "run_completed", {"evidence_count": len(state.evidence)})
 
@@ -233,11 +256,14 @@ class ResearchAgent:
             title_stems = self._token_stems(item.get("title", ""))
             snippet_stems = self._token_stems(item.get("snippet", ""))
             searchable_stems = title_stems | snippet_stems
+            uncovered_matches = len(uncovered_stems.intersection(searchable_stems))
+            if state.evidence and uncovered_stems and not uncovered_matches:
+                continue
             score = (
                 5 * len(subject_stems.intersection(title_stems))
                 + len(subject_stems.intersection(snippet_stems))
                 + 2 * len(goal_stems.intersection(title_stems))
-                + 2 * len(uncovered_stems.intersection(searchable_stems))
+                + 2 * uncovered_matches
             )
             if score:
                 scored_candidates.append((score, sid))
@@ -386,9 +412,13 @@ class ResearchAgent:
     def _stem(word: str) -> str:
         if word.endswith("ies") and len(word) > 5:
             return word[:-3] + "y"
-        for suffix in ("ing", "ed", "es", "s"):
+        for suffix in ("ing", "ed"):
             if word.endswith(suffix) and len(word) - len(suffix) >= 4:
                 return word[:-len(suffix)]
+        if re.search(r"(?:ss|sh|ch|x|z|o)es$", word) and len(word) > 5:
+            return word[:-2]
+        if word.endswith("s") and not word.endswith("ss") and len(word) > 4:
+            return word[:-1]
         return word
 
     @classmethod
@@ -417,6 +447,68 @@ class ResearchAgent:
                 uncited.append(sentence)
         return uncited
 
+    @staticmethod
+    def _normalize_superscript_citations(answer: str, saved_source_ids: set[str]) -> str:
+        """Repair only unambiguous superscript source numbers already in evidence."""
+        digits = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹", "0123456789")
+
+        def replace(match: re.Match[str]) -> str:
+            number = match.group(0).translate(digits)
+            source_id = f"S{int(number)}"
+            return f"[{source_id}]" if source_id in saved_source_ids else match.group(0)
+
+        normalized = re.sub(r"[⁰¹²³⁴⁵⁶⁷⁸⁹]+", replace, answer)
+
+        def move_before_punctuation(match: re.Match[str]) -> str:
+            punctuation, source_id = match.groups()
+            return f" [{source_id}]{punctuation}" if source_id in saved_source_ids else match.group(0)
+
+        return re.sub(r"([.!?])\s*\[(S\d+)\](?=\s|$)", move_before_punctuation, normalized)
+
+    @classmethod
+    def _uncovered_answer_terms(cls, goal: str, answer: str) -> list[str]:
+        """Return explicit comparison/explanation terms omitted from the final answer."""
+        answer_stems = cls._token_stems(answer)
+        return [term for term in cls._goal_terms(goal) if cls._stem(term) not in answer_stems]
+
+    @classmethod
+    def _answer_quality(cls, answer: str, state: AgentState) -> dict:
+        """Compute observable, deterministic checks without claiming semantic entailment."""
+        goal_terms = cls._goal_terms(state.goal)
+        answer_stems = cls._token_stems(answer)
+        covered_goal_terms = [term for term in goal_terms if cls._stem(term) in answer_stems]
+        sentences = cls._substantive_sentences(answer)
+        cited_sentences = [sentence for sentence in sentences if re.search(r"\[S\d+\]", sentence)]
+        evidence_by_id = {item.source_id: item.excerpt for item in state.evidence}
+        supported_overlap = 0
+        for sentence in cited_sentences:
+            citation_ids = re.findall(r"\[(S\d+)\]", sentence)
+            evidence_stems = cls._token_stems(" ".join(evidence_by_id.get(sid, "") for sid in citation_ids))
+            sentence_stems = {
+                stem for stem in cls._token_stems(re.sub(r"\[S\d+\]", "", sentence))
+                if len(stem) >= 4 and stem not in {cls._stem(word) for word in cls.GOAL_STOPWORDS}
+            }
+            if sentence_stems.intersection(evidence_stems):
+                supported_overlap += 1
+        return {
+            "goal_terms_covered": len(covered_goal_terms),
+            "goal_terms_total": len(goal_terms),
+            "substantive_sentences": len(sentences),
+            "cited_substantive_sentences": len(cited_sentences),
+            "sentences_with_evidence_overlap": supported_overlap,
+            "evidence_overlap_is_heuristic": True,
+        }
+
+    @staticmethod
+    def _substantive_sentences(answer: str) -> list[str]:
+        text = re.sub(r"^#{1,6}\s+", "", answer, flags=re.MULTILINE)
+        text = re.sub(r"\*\*([^*]+)\**", r"\1", text)
+        return [
+            sentence.strip().lstrip("-• ")
+            for sentence in re.split(r"(?<=[.!?])(?:\s+|$)", text.strip())
+            if len(re.findall(r"[A-Za-z0-9]+", sentence)) >= 4
+        ]
+
     @classmethod
     def _uncovered_goal_terms(cls, state: AgentState) -> list[str]:
         covered_text = " ".join(f"{item.title} {item.excerpt}" for item in state.evidence)
@@ -424,8 +516,34 @@ class ResearchAgent:
         return [term for term in cls._goal_terms(state.goal) if cls._stem(term) not in covered]
 
     def _event(self, state: AgentState, event: str, detail: dict) -> None:
+        safe_detail = self._redact_value(detail)
         with self.trace_path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(Event(state.step, event, detail).__dict__, ensure_ascii=False) + "\n")
+            record = Event(
+                step=state.step,
+                event=event,
+                detail=safe_detail,
+                run_id=state.run_id,
+                timestamp=datetime.now(timezone.utc).isoformat(),
+            )
+            handle.write(json.dumps(record.__dict__, ensure_ascii=False) + "\n")
+
+    @classmethod
+    def _redact_value(cls, value, key: str = ""):
+        if any(marker in key.lower() for marker in ("api_key", "authorization", "password", "secret", "token")):
+            return "<redacted>"
+        if isinstance(value, dict):
+            return {item_key: cls._redact_value(item, item_key) for item_key, item in value.items()}
+        if isinstance(value, list):
+            return [cls._redact_value(item) for item in value]
+        if isinstance(value, str):
+            return cls._redact_text(value)
+        return value
+
+    @staticmethod
+    def _redact_text(value: str) -> str:
+        value = re.sub(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]+", "Bearer <redacted>", value)
+        value = re.sub(r"(?i)\b(?:sk-|gsk_)[A-Za-z0-9_-]{8,}", "<redacted-key>", value)
+        return value
 
     def _save(self, state: AgentState) -> None:
         temp = self.checkpoint_path.with_suffix(".tmp")

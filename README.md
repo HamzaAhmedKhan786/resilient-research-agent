@@ -2,9 +2,11 @@
 
 Resilient Research Agent is a narrow, evidence-backed research assistant for showing how a small agent makes decisions and recovers across multiple steps. A user supplies a goal through a CLI or dependency-free localhost UI; the agent searches Wikipedia, reads sources, admits verified excerpts, and produces a cited answer. The scope is intentionally limited so the decision loop, state, retries, checkpoints, and evaluation remain understandable without an agent framework.
 
+![Completed live Groq research run](assets/screenshots/live-run-overview.png)
+
 ## Quick start
 
-Requirements: Python 3.11+ and, for live mode, an OpenAI or Groq API key.
+Requirements: Python 3.11+ and, for live mode, an OpenAI, Groq, or company-issued Libra API key.
 
 ```powershell
 python -m venv .venv
@@ -22,7 +24,7 @@ python -m unittest discover -s tests -v
 python evals/run_evals.py
 ```
 
-Open the UI at `http://127.0.0.1:8765`. Offline demo mode is selected by default. Clear it, choose OpenAI or Groq, and enter that provider's API key. Groq defaults to `openai/gpt-oss-20b`; the harness selects the valid phase while Groq supplies plain-text search queries, evidence excerpts, and final synthesis.
+Open the UI at `http://127.0.0.1:8765`. Offline demo mode is selected by default. Clear it, choose OpenAI, Groq, or Libra / Company, and enter that provider's API key. Groq defaults to `openai/gpt-oss-20b`; the harness selects the valid phase while Groq supplies plain-text search queries, evidence excerpts, and final synthesis. Libra defaults to the company-provided `gpt-5.6-sol` deployment.
 
 For CLI live mode:
 
@@ -33,7 +35,13 @@ research-agent "Compare two explanations for why the Tacoma Narrows Bridge faile
 # Alternative live provider
 $env:GROQ_API_KEY="your-key"
 research-agent "Compare two explanations for why the Tacoma Narrows Bridge failed" --provider groq
+
+# Company-provided GPT-5.6 Sol access
+$env:LIBRA_INTERVIEW_API_KEY="company-key"
+research-agent "Compare two explanations for why the Tacoma Narrows Bridge failed" --provider libra
 ```
+
+The Libra credential is issued for the fixed company Azure endpoint and is not interchangeable with an OpenAI Platform key. The endpoint is safe to keep in source; the credential is not. Never commit the supplied key file or copy its value into `.env.example`, documentation, checkpoints, or traces.
 
 ## Architecture
 
@@ -84,7 +92,7 @@ if no steps remain:
     terminate as budget_exhausted
 ```
 
-The action space is deliberately small: `search`, `read`, `note`, `skip`, and `finish`. Search results get stable IDs such as `S1`. A source must be read before it supports a note, and the note excerpt must appear verbatim in the retrieved document. A read source with no relevant excerpt is explicitly abandoned and traced so it cannot trap the loop. Every source ID cited by a final answer must exist in the evidence ledger.
+The action space is deliberately small: `search`, `read`, `note`, `skip`, and `finish`. Search results get stable IDs such as `S1`. A source must be read before it supports a note, and the note excerpt must appear verbatim in the retrieved document. A read source with no relevant excerpt is explicitly abandoned and traced so it cannot trap the loop. Every source ID cited by a final answer must exist in the evidence ledger. Finish validation also checks that the answer names an identifiable goal subject and covers the explicit comparison terms extracted from the input goal.
 
 ## State and context handling
 
@@ -95,6 +103,7 @@ Persisted in `checkpoint.json`:
 - IDs of sources read;
 - admitted evidence excerpts;
 - provider retry, tool retry, and validation-failure counters;
+- final-answer quality checks for goal coverage, citation coverage, and evidence-word overlap;
 - semantic errors and final answer.
 
 Sent to the model:
@@ -125,7 +134,8 @@ Long read results are compacted to bounded, relevance-centered extracts in model
 | Unknown/unread source | Reject the evidence action; allow a later changed decision. |
 | Fabricated evidence excerpt | Match only harmless case/whitespace/typography variants, recover the exact source span, and reject semantic changes. |
 | Missing or invalid final citation | Reject the finish action; require another decision. |
-| Missing requested source count, distinct citations, or goal-term coverage | Reject finish and direct research toward uncovered requirements. |
+| Missing requested source count, distinct citations, evidence coverage, or answer-to-goal coverage | Reject finish and expose the exact gap to the next decision. |
+| Detached or superscript citation | Repair only an unambiguous admitted source ID into `Claim [S1].`; unknown IDs remain invalid. |
 | Step budget exhausted | Stop deterministically with `budget_exhausted`. |
 | Process restart | Load durable state with `--resume` and re-fetch previously read source content. |
 | Provider 429/5xx | Retry inside the current planning cycle using provider delay guidance; rate limits have a separate bounded cooldown budget and do not spend a logical research step. |
@@ -136,11 +146,13 @@ Long read results are compacted to bounded, relevance-centered extracts in model
 | Reasoning-only Groq response | Use low reasoning effort, exclude returned reasoning, and reserve separate output budgets for query, excerpt, and final text. |
 | Empty or repeated search | Normalize verbose queries and choose a distinct title-like fallback locally after zero results. |
 
-`trace.jsonl` records decisions, tool outcomes, retries, validation errors, and the termination reason. Checkpoints are written through a temporary file followed by atomic replacement, with a short bounded retry for transient Windows file-lock contention. The CLI and UI surface aggregate retry and validation counters while the trace retains event-level detail.
+`trace.jsonl` is the primary structured log. Each event includes a UTC timestamp, run ID, logical step, event name, and detail object; it records decisions, tool outcomes, retries, validation errors, answer-quality checks, and the termination reason. Trace and checkpoint error text passes through credential redaction. The web process also emits lifecycle-only operational logs containing run ID, mode, provider, status, and step count—never the goal or key. Checkpoints are written through a temporary file followed by atomic replacement, with a short bounded retry for transient Windows file-lock contention. The CLI and UI surface aggregate retry, validation, goal-coverage, and citation-coverage metrics while the trace retains event-level detail.
+
+The input/output link is checked at three levels: requested subject and comparison terms must appear in the answer; substantive sentences must carry admitted-source citations when requested; and cited sentences receive a logged lexical-overlap diagnostic against their cited excerpts. The first two are enforced. The third is intentionally diagnostic because word overlap cannot prove semantic entailment, while valid paraphrases may share little wording. Factual correctness and entailment still require a stronger grader or human review.
 
 ## Security
 
-The UI binds to `127.0.0.1` by default. The selected OpenAI or Groq key is transmitted from the browser to the local HTTP server for the selected run, held only in process memory, and excluded from persistent state, logs, status responses, and browser storage. The password field is masked by default, offers an explicit Show/Hide control, and is cleared after submission.
+The UI binds to `127.0.0.1` by default. The selected OpenAI, Groq, or Libra key is transmitted from the browser to the local HTTP server for the selected run, held only in process memory, and excluded from persistent state, logs, status responses, and browser storage. The password field is masked by default, offers an explicit Show/Hide control, and is cleared after submission.
 
 Keys are not encrypted and stored: doing that securely would require a separate protected decryption key. Avoiding persistence is simpler and safer for this local demonstration. `.env`, run directories, caches, logs, and virtual environments are ignored by Git. Live run directories can contain user goals and retrieved content and must not be committed.
 
@@ -154,7 +166,7 @@ Exact command:
 python evals/run_evals.py
 ```
 
-Checked-in result: **6/6 controlled evaluation scenarios passing**.
+Checked-in result: **7/7 controlled evaluation scenarios passing**.
 
 | Scenario | Fault or behavior | Assertions | Result |
 |---|---|---|---|
@@ -164,8 +176,9 @@ Checked-in result: **6/6 controlled evaluation scenarios passing**.
 | Invalid citation recovery | First finish has no citation, next changes | rejection followed by successful completion | Pass, 5 steps |
 | Adaptive long horizon | State-driven decisions, injected search/read faults, invalid finish | retries, error-conditioned correction, two-source completion | Pass, 8 steps |
 | Irrelevant source recovery | First read has no relevant evidence | source abandonment, changed source, cited completion | Pass, 7 steps |
+| Input/output relevance recovery | First answer omits a requested comparison term | rejection, error-conditioned revision, complete goal coverage | Pass, 8 steps |
 
-Detailed output is in `evals/results.json`. Separately, **41/41 unit tests pass** across agent, model, tool, and web-security coverage. They include OpenAI request serialization and pacing, a full multi-step Groq plain-text run, zero-result and uncovered-term query fallback, source abandonment, deterministic subject-ranked reads, relevance-centered context extraction, typography-tolerant exact evidence recovery, title-aware subject grounding, distinct-citation and claim-level citation validation, interruption/resume, circuit breaking, permanent quota errors, persisted retry accounting, corpus boundaries, Wikipedia response validation, locator construction, and API-key non-persistence. These unit tests are not part of the six-scenario evaluation count.
+Detailed output is in `evals/results.json`. Separately, **55/55 unit tests pass** across agent, model, tool, and web-security coverage. They include OpenAI request serialization and pacing, Libra endpoint/authentication isolation, a full multi-step Groq plain-text run, superscript and detached-citation repair, answer-to-goal relevance recovery, timestamped/redacted trace records, lightweight stemming, uncovered-concept source ranking, focused follow-up queries, long-page evidence recovery, cross-subject evidence rejection, goal-concept source grounding, zero-result query fallback, source abandonment, relevance-centered context extraction, typography-tolerant exact evidence recovery, distinct-citation and claim-level citation validation, interruption/resume, circuit breaking, permanent quota errors, persisted retry accounting, corpus boundaries, Wikipedia response validation, locator construction, and API-key non-persistence. These unit tests are not part of the seven-scenario evaluation count.
 
 The controlled harness remains the stable offline baseline. A separate live model-in-the-loop evaluation uses a fixed public research goal and a key that is never written to disk:
 
@@ -173,9 +186,9 @@ The controlled harness remains the stable offline baseline. A separate live mode
 python evals/run_live_eval.py
 ```
 
-It checks multi-step completion, admission of at least two sources, citation membership, sentence-level citation presence, checkpoint creation, and trace creation. After each attempt it writes a sanitized `evals/live-results.json`; the raw run remains under ignored `.runs/`. Live results are reported separately because network, account quota, and model behavior are non-deterministic.
+It checks multi-step completion, admission of at least two sources, citation membership, sentence-level citation presence, requested-term coverage, checkpoint creation, and trace creation. After each attempt it writes a sanitized `evals/live-results.json`; the raw run remains under ignored `.runs/`. Live results are reported separately because network, account quota, and model behavior are non-deterministic.
 
-The latest recorded Groq run completed in six steps with two sources and no operational failures. Manual review nevertheless marked it as not fully passing: several factual sentences lacked their own citation, one statement strengthened the source wording, and the unsupported uncertainty sentence had no evidence. The sanitized original and review are in `examples/live-run.md` and `examples/live-trace.jsonl`. That observed failure motivated sentence-level citation validation and a stricter synthesis prompt. A post-fix live rerun is still needed; the controlled suite verifies the new guard deterministically.
+The latest recorded post-fix Groq run completed in nine steps with two sources, 2/2 goal-term coverage, 2/2 cited-sentence coverage, and no provider, tool, or validation failures. It also demonstrated adaptation by abandoning an unhelpful first read and searching specifically for the uncovered resonance concept. Manual review still found two entailment risks: the answer made a source's “possibly” causal wording definite and added a stronger natural-frequency contrast than the admitted excerpt explicitly stated. The sanitized run and review are in `examples/live-run.md` and `examples/live-trace.jsonl`. This distinction—structural completion versus human-reviewed support—is intentional.
 
 The deterministic planner and three-document local corpus isolate harness mechanics from sampling and network variation. The suite checks control flow, evidence invariants, recovery, checkpoint creation, and observability. It does not establish live research accuracy, citation entailment, cross-model performance, latency, or cost.
 
@@ -197,6 +210,8 @@ The deterministic planner and three-document local corpus isolate harness mechan
 - The next live run had no provider errors but admitted evidence about Broughton Bridge and aircraft wings, then synthesized an invalid `[S9]` citation. Evidence must now mention the goal subject, final synthesis receives only admitted evidence and allowed citation IDs, and Groq request starts are paced by 750 ms as a conservative burst guard.
 - The following run reached the correct 1940 article but Groq changed capitalization, whitespace, and non-breaking dash/space characters while copying evidence. Verification now matches only those harmless typography variants and stores the corresponding exact source substring; paraphrases remain invalid.
 - That exact article then exposed a context issue: a valid excerpt used “the bridge” rather than repeating the title. Subject grounding now accepts contextual language when the source title itself identifies the named subject, while generic or analogous source titles still require the excerpt to name it.
+- One trace reached correct Tacoma and resonance evidence but placed citations after periods (`Claim. [S2]`). A bounded normalizer now moves only admitted IDs before sentence punctuation, and finish validation separately rejects answers that omit a requested comparison term.
+- The post-fix live run then completed in nine steps. It verified that focused follow-up search, source abandonment, evidence admission, citation formatting, goal coverage, and terminal quality logging work together; manual review also confirmed that lexical overlap remains a diagnostic rather than an entailment proof.
 
 ## Example run
 
@@ -206,11 +221,20 @@ research-agent --demo --run-dir .runs/example
 
 Result:
 
-> Checkpointing limits repeated work after interruption [S1], while bounded retries absorb transient faults without allowing endless loops [S2]. Together they address different failure modes.
+> Checkpointing limits repeated work after interruption [S1], while bounded retries absorb transient faults without allowing endless loops [S2]. Together they address different failure modes [S1][S2].
 
 The seven-step sanitized transcript is in `examples/offline-demo.md`, with its machine-readable trace in `examples/offline-trace.jsonl`. It is a real execution of the harness with deterministic decisions, not a live-model quality claim.
 
-The repository also preserves a real six-step Groq run in `examples/live-run.md` and `examples/live-trace.jsonl`. Its manual review deliberately records a claim-grounding failure even though the harness originally returned `complete`; this is the clearest example of how evaluation changed the implementation. Raw `.runs/` artifacts remain local because they may contain user content.
+The repository also preserves the real nine-step post-fix Groq run in `examples/live-run.md` and `examples/live-trace.jsonl`. Its manual review deliberately distinguishes passing structural checks from full semantic entailment. Raw `.runs/` artifacts remain local because they may contain user content.
+
+<details>
+<summary>Live trace screenshots</summary>
+
+![Beginning of the live agent trace](assets/screenshots/live-run-trace-start.png)
+
+![Evidence, validation, and completion](assets/screenshots/live-run-trace-finish.png)
+
+</details>
 
 ## Trade-offs
 
@@ -263,6 +287,7 @@ tests/                   focused invariant tests
 evals/                   corpus, fault-injection harness, measured results
 docs/                    architecture, design, video outline, and development process
 examples/                sanitized offline and live runs with quality review
+assets/screenshots/      sanitized UI evidence for the completed live run
 ```
 
 ## Development process and submission status

@@ -11,5 +11,6 @@
 {"step":5,"event":"source_read","detail":{"source_id":"S2","characters":279}}
 {"step":6,"event":"action_selected","detail":{"kind":"note","args":{"source_id":"S2","excerpt":"Retries should be bounded and reserved for failures likely to be transient."},"rationale":""}}
 {"step":6,"event":"evidence_saved","detail":{"source_id":"S2","excerpt":"Retries should be bounded and reserved for failures likely to be transient."}}
-{"step":7,"event":"action_selected","detail":{"kind":"finish","args":{"answer":"Checkpointing limits repeated work after interruption [S1], while bounded retries absorb transient faults without allowing endless loops [S2]. Together they address different failure modes."},"rationale":""}}
+{"step":7,"event":"action_selected","detail":{"kind":"finish","args":{"answer":"Checkpointing limits repeated work after interruption [S1], while bounded retries absorb transient faults without allowing endless loops [S2]. Together they address different failure modes [S1][S2]."},"rationale":""}}
+{"step":7,"event":"answer_validated","detail":{"goal_terms_covered":2,"goal_terms_total":2,"substantive_sentences":2,"cited_substantive_sentences":2,"sentences_with_evidence_overlap":2,"evidence_overlap_is_heuristic":true}}
 {"step":7,"event":"run_completed","detail":{"evidence_count":2}}
