@@ -64,7 +64,7 @@ class Handler(BaseHTTPRequestHandler):
             api_key = str(body.get("api_key", "")).strip() or os.environ.get(key_env, "")
             if not demo and not api_key:
                 raise ValueError(f"Enter a {provider.title()} API key or select offline demo.")
-        except (ValueError, json.JSONDecodeError) as exc:
+        except ValueError as exc:
             return self._json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
 
         run_id = uuid.uuid4().hex[:10]
@@ -136,7 +136,8 @@ def _run_agent(run_id: str, goal: str, demo: bool, provider: str, model: str, ru
         safe_error = ResearchAgent._redact_text(str(exc))
         with RUNS_LOCK:
             RUNS[run_id].update(status="failed", error=f"{type(exc).__name__}: {safe_error}")
-        LOGGER.error("run_failed run_id=%s error_type=%s", run_id, type(exc).__name__)
+        # Deliberately avoid logging.exception(): provider exceptions can contain credentials.
+        LOGGER.error("run_failed run_id=%s error_type=%s", run_id, type(exc).__name__)  # NOSONAR
 
 
 def _read_events(path: Path) -> list[dict]:
@@ -159,7 +160,8 @@ def main() -> None:
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     server = ThreadingHTTPServer((args.host, args.port), Handler)
-    url = f"http://{args.host}:{args.port}"
+    # Plain HTTP is intentional for the loopback-only development UI. Docker also publishes to 127.0.0.1.
+    url = f"http://{args.host}:{args.port}"  # NOSONAR
     print(f"Research Agent UI: {url}")
     print("Press Ctrl+C to stop.")
     if not args.no_browser:

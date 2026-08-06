@@ -433,6 +433,7 @@ class ScriptedPlanner:
         self.actions = iter(actions)
 
     def next_action(self, system: str, state: str) -> Action:
+        del system, state  # Required by the shared Planner interface.
         try:
             return next(self.actions)
         except StopIteration as exc:
