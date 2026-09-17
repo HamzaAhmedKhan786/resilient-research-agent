@@ -1,6 +1,6 @@
 # AI-assisted development process
 
-This repository was built interactively with Codex from the challenge specification. The original visible conversation is checked in as `docs/dev-process/ai-sessions/session-01-codex-transcript.md`; this document describes the collaboration but does not substitute for that export.
+This repository was built interactively with Codex from the challenge specification. This document summarizes the collaboration; the original conversation is not included in this repository.
 
 ## What AI proposed
 
@@ -53,4 +53,4 @@ The central product judgment is to demonstrate resilience through observable sta
 
 ## Original session export
 
-The mechanically extracted visible transcript is stored under `docs/dev-process/ai-sessions/`, together with a redaction note. Its user and assistant message text and ordering are unchanged except for the documented local-account-path redaction. Hidden runtime instructions, private reasoning, and tool protocol records are not published.
+The original AI conversation is not published in this repository. The take-home asks for unedited AI conversations, so this deliverable is currently missing.

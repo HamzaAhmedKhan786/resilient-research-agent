@@ -329,4 +329,4 @@ assets/screenshots/      sanitized UI evidence for the completed live run
 
 The original specification, plan, decisions, and exact planner prompt are in `docs/dev-process/`. `docs/AI_PROCESS.md` records AI contributions, corrections, validation, and rejected overengineering.
 
-The original AI development conversation is included as a mechanically extracted visible transcript in [`docs/dev-process/ai-sessions/`](docs/dev-process/ai-sessions/), with its permitted privacy redaction documented alongside it. The 3–5 minute video must still be recorded and linked before final submission.
+The original AI development conversation is not published in this repository. Because the take-home requests unedited AI conversations, that deliverable remains unmet. The linked 12:38 walkthrough also exceeds the requested 3–5 minute duration.
