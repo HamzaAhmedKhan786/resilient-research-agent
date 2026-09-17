@@ -17,6 +17,7 @@ from urllib.parse import urlparse
 from .agent import ResearchAgent
 from .cli import _demo_actions
 from .model import GroqPlanner, LibraPlanner, OpenAIPlanner, ScriptedPlanner
+from .metrics import render_metrics
 from .tools import HttpTools, LocalCorpusTools
 
 
@@ -131,6 +132,8 @@ class Handler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         if path == "/":
             return self._send(HTTPStatus.OK, HTML, "text/html; charset=utf-8")
+        if path == "/metrics":
+            return self._send(HTTPStatus.OK, render_metrics(RUNS_ROOT), "text/plain; version=0.0.4; charset=utf-8")
         if path == "/api/runs":
             return self._json(HTTPStatus.OK, {"runs": _saved_runs()})
         if path.startswith("/api/runs/"):

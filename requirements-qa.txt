@@ -1,0 +1,3 @@
+# Optional evaluation-only tools. The agent itself remains standard-library-only.
+deepeval>=4,<5
+langfuse>=4,<5

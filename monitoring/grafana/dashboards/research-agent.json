@@ -1,0 +1,35 @@
+{
+  "uid": "research-agent-health",
+  "title": "Research Agent · Run Health",
+  "tags": ["research-agent"],
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "15s",
+  "time": {"from": "now-24h", "to": "now"},
+  "panels": [
+    {
+      "id": 1, "type": "timeseries", "title": "Saved runs by status",
+      "datasource": {"type": "prometheus", "uid": "research-prometheus"},
+      "targets": [{"expr": "research_agent_run_checkpoints", "legendFormat": "{{status}}", "refId": "A"}],
+      "gridPos": {"h": 9, "w": 24, "x": 0, "y": 0}
+    },
+    {
+      "id": 2, "type": "stat", "title": "Validation failures (saved runs)",
+      "datasource": {"type": "prometheus", "uid": "research-prometheus"},
+      "targets": [{"expr": "research_agent_recorded_validation_failures", "refId": "A"}],
+      "gridPos": {"h": 6, "w": 8, "x": 0, "y": 9}
+    },
+    {
+      "id": 3, "type": "stat", "title": "Provider retries (saved runs)",
+      "datasource": {"type": "prometheus", "uid": "research-prometheus"},
+      "targets": [{"expr": "research_agent_recorded_provider_retries", "refId": "A"}],
+      "gridPos": {"h": 6, "w": 8, "x": 8, "y": 9}
+    },
+    {
+      "id": 4, "type": "stat", "title": "Tool retries (saved runs)",
+      "datasource": {"type": "prometheus", "uid": "research-prometheus"},
+      "targets": [{"expr": "research_agent_recorded_tool_retries", "refId": "A"}],
+      "gridPos": {"h": 6, "w": 8, "x": 16, "y": 9}
+    }
+  ]
+}

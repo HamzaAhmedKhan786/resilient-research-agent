@@ -1,0 +1,7 @@
+apiVersion: 1
+providers:
+  - name: Research Agent
+    type: file
+    folder: Research Agent
+    options:
+      path: /var/lib/grafana/dashboards

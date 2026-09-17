@@ -22,7 +22,7 @@ This repository was built interactively with Codex from the challenge specificat
 
 The first deterministic example assumed search ranking would assign the retry document to `S2`. Trace inspection showed that `S2` was a different document, so a note failed exact-excerpt validation. The initial final-answer validator also accepted an answer when any citation matched saved evidence, allowing a second unsupported citation. The validator was corrected to require every cited source ID to be admitted evidence, and the example now discovers the two sources explicitly.
 
-The initial status summary said “4/4 evaluation scenarios” and then listed additional unit-test behaviors without distinguishing them. The current documentation reports seven controlled evaluation scenarios and 55 unit tests separately.
+The initial status summary said “4/4 evaluation scenarios” and then listed additional unit-test behaviors without distinguishing them. The current documentation reports seven controlled evaluation scenarios and 67 unit tests separately.
 
 The first live run to reach `complete` also revealed that structural citation validation was not claim-level grounding. The answer cited admitted sources but included uncited background and unsupported uncertainty. The original run is preserved with an adverse manual review; the harness now rejects uncited factual sentences when the goal explicitly requires every substantive claim to be cited.
 
@@ -50,6 +50,10 @@ The central product judgment is to demonstrate resilience through observable sta
 - React or another frontend build system for a local form-and-trace UI.
 - Distributed workers and a database for a single-process demonstration.
 - Persistently encrypted API keys, which would introduce a key-management problem when session-only memory is sufficient.
+
+## Later optional QA and monitoring decision
+
+The live example passed structural checks but failed manual claim-entailment review. I therefore added a read-only QA runner with independent trace/evidence checks and an opt-in DeepEval judge, plus aggregate checkpoint metrics for an optional Prometheus/Grafana view. Langfuse publication is limited to content-free QA scores. These tools are deliberately outside the agent's decision loop: they measure it but cannot choose its actions, and the base install retains no third-party runtime dependencies. The external judge and dashboard have not been presented as proof of research accuracy or production readiness.
 
 ## Original session export
 

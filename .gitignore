@@ -9,6 +9,7 @@ build/
 .runs/
 .env
 .pytest_cache/
+.deepeval/
 .mypy_cache/
 .coverage
 htmlcov/

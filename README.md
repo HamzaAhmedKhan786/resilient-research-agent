@@ -189,6 +189,33 @@ Keys are not encrypted and stored: doing that securely would require a separate 
 
 This is a local development UI, not a hardened multi-user service. It has no authentication, TLS, isolation, or rate limiting and should not be exposed on a public interface.
 
+## Optional monitoring and independent QA
+
+The standard agent remains dependency-free. For local operational monitoring, its `/metrics` endpoint exposes aggregate saved-UI-run counts by status, recorded steps, retries, validation failures, and malformed checkpoint counts. It never uses goals, answers, source text, keys, or run IDs as metric labels. These are **checkpoint gauges**, not lifetime counters: deleting run data reduces them. Prometheus and a provisioned Grafana dashboard are optional and do not participate in decisions.
+
+```powershell
+# Set a private, unique local Grafana password in your shell first.
+docker compose --env-file .env.example -f compose.yaml -f compose.monitoring.yaml up --build -d
+```
+
+Open the agent at `http://127.0.0.1:8765`, Prometheus at `http://127.0.0.1:9090`, and Grafana at `http://127.0.0.1:3000` (user `admin`; password from `GRAFANA_ADMIN_PASSWORD`). The monitoring services bind to localhost only. The overlay requires that environment variable and deliberately does not supply a default password. The endpoint is also available without Docker from the normal local UI. [Prometheus scrape configuration](https://prometheus.io/docs/prometheus/latest/configuration/configuration/) and [Grafana provisioning](https://grafana.com/docs/grafana/latest/administration/provisioning/) are kept in `monitoring/`.
+
+A separate read-only QA runner inspects any saved run without influencing its result:
+
+```powershell
+python evals/run_qa.py .runs/evals/happy_path
+
+# Optional model-judged faithfulness and answer relevance; sends goal, answer,
+# and saved excerpts to the configured DeepEval judge (OpenAI by default).
+python -m pip install -r requirements-qa.txt
+python evals/run_qa.py .runs/live-eval --judge
+
+# Optional content-free QA summary in your configured Langfuse project.
+python evals/run_qa.py .runs/live-eval --langfuse
+```
+
+`--judge` requires `OPENAI_API_KEY`; `--langfuse` requires `LANGFUSE_PUBLIC_KEY` and `LANGFUSE_SECRET_KEY`, plus `LANGFUSE_BASE_URL` when using a non-default region or self-hosting. The QA runner disables DeepEval's automatic `.env` loading and hides judge explanations by default; `--show-reasons` explicitly prints explanations that may quote run content. [DeepEval faithfulness](https://deepeval.com/docs/metrics-faithfulness) and [answer relevancy](https://deepeval.com/docs/metrics-answer-relevancy) are optional LLM-as-judge opinions, not proof of correctness. [Langfuse SDK v4](https://langfuse.com/docs/observability/sdk/overview) receives only check names, booleans, a run ID, and numeric judge scores; it does not receive the goal, answer, evidence, or API key. These optional integrations have not been included in the baseline 7-case evaluation or claimed as live-verified without credentials.
+
 ## Evaluation
 
 Exact command:
@@ -209,7 +236,7 @@ Checked-in result: **7/7 controlled evaluation scenarios passing**.
 | Irrelevant source recovery | First read has no relevant evidence | source abandonment, changed source, cited completion | Pass, 7 steps |
 | Input/output relevance recovery | First answer omits a requested comparison term | rejection, error-conditioned revision, complete goal coverage | Pass, 8 steps |
 
-Detailed output is in `evals/results.json`. Separately, **61/61 unit tests pass** across agent, model, tool, and web-security coverage. They include OpenAI request serialization and pacing, Libra endpoint/authentication isolation, a full multi-step Groq plain-text run, superscript and detached-citation repair, answer-to-goal relevance recovery, timestamped/redacted trace records, lightweight stemming, uncovered-concept source ranking, focused follow-up queries, long-page evidence recovery, cross-subject evidence rejection, goal-concept source grounding, zero-result query fallback, source abandonment, relevance-centered context extraction, typography-tolerant exact evidence recovery, distinct-citation and claim-level citation validation, interruption/resume, terminal-checkpoint continuation, saved-run discovery and path validation, circuit breaking, permanent quota errors, persisted retry accounting, corpus boundaries, Wikipedia response validation, locator construction, and API-key non-persistence. These unit tests are not part of the seven-scenario evaluation count.
+Detailed output is in `evals/results.json`. Separately, **67/67 unit tests pass** across agent, model, tool, observability, QA, and web-security coverage. They include provider request behavior, evidence/citation validation and recovery, interruption/resume, retry accounting, source handling, API-key non-persistence, content-free metrics, and independent saved-run QA. These unit tests are not part of the seven-scenario evaluation count.
 
 The controlled harness remains the stable offline baseline. A separate live model-in-the-loop evaluation uses a fixed public research goal and a key that is never written to disk:
 
@@ -279,7 +306,7 @@ The repository also preserves the real nine-step post-fix Groq run in `examples/
 
 ## Time spent
 
-The work extended beyond the suggested 4–6 hours across several debugging and documentation sessions. No reliable timer was running, so inventing an exact total would be misleading. The best retrospective allocation is:
+The original agent took approximately 15 hours of active work across several sessions, beyond the suggested 4–6 hours. Monitoring and independent QA were added later; their time was not tracked, so the current total is higher but cannot be stated precisely. The best retrospective allocation for the original build is:
 
 | Work | Approximate share |
 |---|---:|
@@ -302,6 +329,8 @@ The extra time went primarily into reproducing real OpenAI/Groq failures, inspec
 - There is no run cancellation mechanism.
 - Resume does not persist full retrieved pages.
 - Claim-level citation entailment is not evaluated.
+- Optional DeepEval judging can flag likely entailment errors but is model-dependent and has not been calibrated against a human-labeled task set.
+- Grafana shows aggregate saved UI runs, not full traces, token costs, or runs launched only through the CLI.
 - Output quality depends on the selected model.
 
 Next priorities are 20–30 recorded live tasks scored for correctness and citation coverage, cost/latency reporting, cancellation, a bounded source cache to avoid resume re-fetches, and domain-specific primary-source retrieval.
@@ -314,8 +343,11 @@ LICENSE                  MIT license
 .env.example             placeholder only; never a real key
 pyproject.toml           package metadata and console commands
 requirements.txt         local package install; no third-party dependencies
+requirements-qa.txt      optional DeepEval and Langfuse dependencies
 Dockerfile               pinned Python 3.14.3 non-root UI image
 compose.yaml             localhost port and persistent checkpoint volume
+compose.monitoring.yaml  optional Prometheus and Grafana stack
+monitoring/              scrape config and provisioned dashboard
 .dockerignore            excludes credentials, runs, caches, and large docs
 src/research_agent/      loop, prompts, state, tools, CLI, and UI
 tests/                   focused invariant tests

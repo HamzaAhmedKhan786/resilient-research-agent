@@ -21,6 +21,8 @@ flowchart LR
 
 The API key crosses from the browser to the localhost server for the selected run. It is retained only in the active process call and is excluded from state, checkpoints, traces, status responses, and browser storage.
 
+Optional, separate development-only paths read the durable outputs without joining the decision loop: `/metrics` aggregates checkpoint counters for Prometheus and Grafana; `evals/run_qa.py` checks saved answer/trace invariants and can invoke DeepEval as an external judge or publish content-free QA scores to Langfuse. Neither path can choose actions or amend a completed answer.
+
 ## Decision and recovery sequence
 
 ```mermaid
